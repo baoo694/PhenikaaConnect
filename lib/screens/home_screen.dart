@@ -145,12 +145,20 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              _buildBadge(context, '2 lớp học hôm nay'),
-              const SizedBox(width: 8),
-              _buildBadge(context, '3 thông báo mới'),
-            ],
+          Consumer<AppProvider>(
+            builder: (context, appProvider, child) {
+              final announcementsCount = appProvider.unreadAnnouncementsCount;
+              return Row(
+                children: [
+                  _buildBadge(context, '0 lớp học hôm nay'),
+                  const SizedBox(width: 8),
+                  _buildBadge(
+                    context,
+                    '$announcementsCount thông báo mới',
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -333,9 +341,16 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          // TODO: Implement today's classes from Supabase
-          // For now, show placeholder
-          _buildPlaceholderClassCard(context),
+          // TODO: Implement today's classes from Supabase when data is available
+          // Hiện tại chưa có dữ liệu lịch học trong database → hiển thị trạng thái trống
+          Center(
+            child: Text(
+              'Chưa có lịch học cho hôm nay',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              ),
+            ),
+          ),
         ],
       ),
     );

@@ -88,12 +88,15 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
             category = 'Tuyển sinh';
           }
           
+          final idStr = (announcement['id'] ?? '').toString();
+          final isRead = appProvider.isAnnouncementRead(idStr);
           return {
             ...announcement,
             'category': category,
             'important': announcement['priority'] == 'high',
             'author': announcement['users']?['name'] ?? 'Hệ thống',
             'time': _formatTimeAgo(announcement['created_at']),
+            'is_read': isRead,
           };
         }).toList();
 
@@ -133,10 +136,18 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   }
 
   Widget _buildAnnouncementCard(Map<String, dynamic> announcement) {
+    final announcementId = (announcement['id'] ?? '').toString();
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       child: GestureDetector(
-        onTap: () => _navigateToDetail(context, announcement),
+        onTap: () {
+          // Mark as read when opening detail
+          if (announcementId.isNotEmpty) {
+            Provider.of<AppProvider>(context, listen: false)
+                .markAnnouncementRead(announcementId);
+          }
+          _navigateToDetail(context, announcement);
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           child: CustomCard(
@@ -145,6 +156,17 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
               children: [
                 Row(
                   children: [
+                    if (announcement['is_read'] != true) ...[
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Colors.blue,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     if (announcement['important'] == true) ...[
                       Container(
                         width: 8,

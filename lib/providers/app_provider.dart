@@ -3,6 +3,7 @@ import '../models/user.dart';
 import '../models/post.dart';
 import '../models/event.dart';
 import '../services/supabase_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AppProvider extends ChangeNotifier {
   // Current User
@@ -32,6 +33,20 @@ class AppProvider extends ChangeNotifier {
   // Announcements
   List<Map<String, dynamic>> _announcements = [];
   List<Map<String, dynamic>> get announcements => _announcements;
+  
+  // Read/unread announcement tracking (persisted locally)
+  Set<String> _readAnnouncementIds = {};
+  int get unreadAnnouncementsCount {
+    if (_announcements.isEmpty) return 0;
+    return _announcements.where((a) {
+      final id = (a['id'] ?? '').toString();
+      return id.isNotEmpty && !_readAnnouncementIds.contains(id);
+    }).length;
+  }
+  bool isAnnouncementRead(String announcementId) {
+    if (announcementId.isEmpty) return true;
+    return _readAnnouncementIds.contains(announcementId);
+  }
 
   // Locations
   List<Map<String, dynamic>> _locations = [];
@@ -75,6 +90,7 @@ class AppProvider extends ChangeNotifier {
     await loadStudyGroups();
     await loadEvents();
     await loadClubs();
+    await _loadReadAnnouncementIdsFromPrefs();
     await loadAnnouncements();
     await loadLocations();
   }
@@ -148,6 +164,41 @@ class AppProvider extends ChangeNotifier {
       _announcements = [];
     }
     notifyListeners();
+  }
+
+  // Mark one announcement as read
+  Future<void> markAnnouncementRead(String announcementId) async {
+    if (announcementId.isEmpty) return;
+    if (_readAnnouncementIds.contains(announcementId)) return;
+    _readAnnouncementIds.add(announcementId);
+    await _saveReadAnnouncementIdsToPrefs();
+    notifyListeners();
+  }
+
+  // Optionally clear read status (not exposed in UI yet)
+  Future<void> markAllAnnouncementsUnread() async {
+    _readAnnouncementIds.clear();
+    await _saveReadAnnouncementIdsToPrefs();
+    notifyListeners();
+  }
+
+  Future<void> _loadReadAnnouncementIdsFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList('read_announcement_ids') ?? <String>[];
+      _readAnnouncementIds = list.toSet();
+    } catch (_) {
+      _readAnnouncementIds = {};
+    }
+  }
+
+  Future<void> _saveReadAnnouncementIdsToPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('read_announcement_ids', _readAnnouncementIds.toList());
+    } catch (_) {
+      // ignore persistence errors silently
+    }
   }
 
   // Load locations
