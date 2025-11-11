@@ -196,7 +196,8 @@ class SupabaseService {
           .insert({
             'user_id': user.id,
             'content': content,
-            if (imageBase64 != null && imageBase64.isNotEmpty) 'image_base64': imageBase64,
+            // Note: 'image_base64' column does not exist in posts table.
+            // If image attachments are needed, upload to Storage and save 'image_url' instead.
           })
           .select('''
             *,
@@ -212,7 +213,7 @@ class SupabaseService {
         avatar: userData['avatar_url'] ?? '',
         time: _formatTimeAgo(response['created_at']),
         content: response['content'],
-        imageBase64: response['image_base64'],
+        imageBase64: null,
         likes: 0,
         comments: 0,
         shares: 0,
