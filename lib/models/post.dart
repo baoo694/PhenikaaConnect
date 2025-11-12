@@ -5,7 +5,7 @@ class Post {
   final String avatar;
   final String time;
   final String content;
-  final String? imageBase64;
+  final String? imageUrl;
   final int likes;
   final int comments;
   final int shares;
@@ -18,7 +18,7 @@ class Post {
     required this.avatar,
     required this.time,
     required this.content,
-    this.imageBase64,
+    this.imageUrl,
     required this.likes,
     required this.comments,
     required this.shares,
@@ -33,7 +33,7 @@ class Post {
       avatar: json['avatar'] ?? '',
       time: json['time'] ?? '',
       content: json['content'] ?? '',
-      imageBase64: json['image_base64'],
+      imageUrl: json['image_url'],
       likes: json['likes'] ?? 0,
       comments: json['comments'] ?? 0,
       shares: json['shares'] ?? 0,
@@ -49,7 +49,7 @@ class Post {
       'avatar': avatar,
       'time': time,
       'content': content,
-      'image_base64': imageBase64,
+      'image_url': imageUrl,
       'likes': likes,
       'comments': comments,
       'shares': shares,
@@ -64,7 +64,7 @@ class Post {
     String? avatar,
     String? time,
     String? content,
-    String? imageBase64,
+    String? imageUrl,
     int? likes,
     int? comments,
     int? shares,
@@ -77,7 +77,7 @@ class Post {
       avatar: avatar ?? this.avatar,
       time: time ?? this.time,
       content: content ?? this.content,
-      imageBase64: imageBase64 ?? this.imageBase64,
+      imageUrl: imageUrl ?? this.imageUrl,
       likes: likes ?? this.likes,
       comments: comments ?? this.comments,
       shares: shares ?? this.shares,

@@ -1,4 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:convert';
+import 'package:uuid/uuid.dart';
 import '../models/user.dart' as app_models;
 import '../models/post.dart';
 import '../models/event.dart';
@@ -173,7 +175,7 @@ class SupabaseService {
           avatar: user?['avatar_url'] ?? '',
           time: _formatTimeAgo(json['created_at']),
           content: json['content'] ?? '',
-          imageBase64: json['image_base64'],
+          imageUrl: json['image_url'],
           likes: json['likes_count'] ?? 0,
           comments: json['comments_count'] ?? 0,
           shares: json['shares_count'] ?? 0,
@@ -190,14 +192,44 @@ class SupabaseService {
     try {
       final user = _client.auth.currentUser;
       if (user == null) return null;
-      
+      String? imageUrl;
+
+      // Upload image to Supabase Storage if provided (expects Base64 without data URL prefix)
+      if (imageBase64 != null && imageBase64.isNotEmpty) {
+        try {
+          // Strip common data URL prefixes if present
+          final cleaned = imageBase64.contains(',')
+              ? imageBase64.split(',').last
+              : imageBase64;
+          final bytes = base64Decode(cleaned);
+          final uuid = const Uuid().v4();
+          final filePath = '${user.id}/$uuid.png';
+          const bucket = 'post_images';
+          
+          await _client.storage
+              .from(bucket)
+              .uploadBinary(
+                filePath,
+                bytes,
+                fileOptions: const FileOptions(
+                  contentType: 'image/png',
+                  upsert: false,
+                ),
+              );
+          final publicUrl = _client.storage.from(bucket).getPublicUrl(filePath);
+          imageUrl = publicUrl;
+        } catch (e) {
+          print('Image upload failed, proceeding without image: $e');
+          imageUrl = null;
+        }
+      }
+
       final response = await _client
           .from('posts')
           .insert({
             'user_id': user.id,
             'content': content,
-            // Note: 'image_base64' column does not exist in posts table.
-            // If image attachments are needed, upload to Storage and save 'image_url' instead.
+            if (imageUrl != null && imageUrl.isNotEmpty) 'image_url': imageUrl,
           })
           .select('''
             *,
@@ -213,7 +245,7 @@ class SupabaseService {
         avatar: userData['avatar_url'] ?? '',
         time: _formatTimeAgo(response['created_at']),
         content: response['content'],
-        imageBase64: null,
+        imageUrl: imageUrl,
         likes: 0,
         comments: 0,
         shares: 0,

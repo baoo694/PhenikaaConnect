@@ -191,10 +191,22 @@ class _SocialScreenState extends State<SocialScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          if (post.imageBase64 != null && post.imageBase64!.isNotEmpty) ...[
+          if (post.imageUrl != null && post.imageUrl!.isNotEmpty) ...[
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.memory(base64Decode(post.imageBase64!), fit: BoxFit.cover),
+              child: AspectRatio(
+                aspectRatio: 4 / 3,
+                child: Image.network(
+                  post.imageUrl!,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: Theme.of(context).colorScheme.surfaceVariant,
+                    alignment: Alignment.center,
+                    child: const Icon(LucideIcons.imageOff, color: Colors.grey),
+                  ),
+                ),
+              ),
             ),
             const SizedBox(height: 12),
           ],
