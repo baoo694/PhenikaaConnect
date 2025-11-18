@@ -258,6 +258,24 @@ class AppProvider extends ChangeNotifier {
     return false;
   }
 
+  Future<bool> createQuestionReply(String questionId, String content) async {
+    final success = await SupabaseService.createQuestionReply(questionId, content);
+    if (success) {
+      await loadQuestions();
+      return true;
+    }
+    return false;
+  }
+
+  Future<bool> markQuestionSolution(String questionId, String replyId) async {
+    final success = await SupabaseService.markQuestionSolution(questionId, replyId);
+    if (success) {
+      await loadQuestions();
+      return true;
+    }
+    return false;
+  }
+
   // Create question
   Future<bool> createQuestion(Map<String, dynamic> questionData) async {
     final question = await SupabaseService.createQuestion(questionData);

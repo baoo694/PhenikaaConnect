@@ -94,6 +94,8 @@ class Question {
   final int replies;
   final String time;
   final bool solved;
+  final String content;
+  final String? userId;
 
   const Question({
     required this.id,
@@ -103,6 +105,8 @@ class Question {
     required this.replies,
     required this.time,
     required this.solved,
+    required this.content,
+    this.userId,
   });
 
   factory Question.fromJson(Map<String, dynamic> json) {
@@ -114,6 +118,8 @@ class Question {
       replies: json['replies'] ?? 0,
       time: json['time'] ?? '',
       solved: json['solved'] ?? false,
+      content: json['content'] ?? '',
+      userId: json['user_id'],
     );
   }
 
@@ -126,6 +132,8 @@ class Question {
       'replies': replies,
       'time': time,
       'solved': solved,
+      'content': content,
+      'user_id': userId,
     };
   }
 }

@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import '../providers/app_provider.dart';
 import '../widgets/common_widgets.dart';
 import 'comments_screen.dart';
+import 'post_detail_screen.dart';
 
 class SocialScreen extends StatefulWidget {
   const SocialScreen({super.key});
@@ -159,6 +160,7 @@ class _SocialScreenState extends State<SocialScreen> {
   Widget _buildPostCard(dynamic post) {
     return CustomCard(
       margin: const EdgeInsets.only(bottom: 16),
+      onTap: () => _openPostDetail(post),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -176,14 +178,14 @@ class _SocialScreenState extends State<SocialScreen> {
                     Text(
                       post.author,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                            fontWeight: FontWeight.bold,
+                          ),
                     ),
                     Text(
                       '${post.major} • ${post.time}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                      ),
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                          ),
                     ),
                   ],
                 ),
@@ -213,8 +215,8 @@ class _SocialScreenState extends State<SocialScreen> {
           Text(
             post.content,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              height: 1.5,
-            ),
+                  height: 1.5,
+                ),
           ),
           const SizedBox(height: 16),
           const Divider(),
@@ -270,6 +272,14 @@ class _SocialScreenState extends State<SocialScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  void _openPostDetail(dynamic post) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PostDetailScreen(post: post),
       ),
     );
   }

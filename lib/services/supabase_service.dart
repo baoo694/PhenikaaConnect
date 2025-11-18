@@ -576,6 +576,8 @@ class SupabaseService {
           replies: replies.length,
           time: _formatTimeAgo(json['created_at']),
           solved: json['solved'],
+          content: json['content'] ?? '',
+          userId: json['user_id'],
         );
       }).toList();
     } catch (e) {
@@ -610,10 +612,74 @@ class SupabaseService {
         replies: 0,
         time: _formatTimeAgo(response['created_at']),
         solved: false,
+        content: response['content'] ?? '',
+        userId: response['user_id'],
       );
     } catch (e) {
       print('Error creating question: $e');
       return null;
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getQuestionReplies(String questionId) async {
+    try {
+      final response = await _client
+          .from('question_replies')
+          .select('''
+            id, content, created_at, is_solution,
+            users!question_replies_user_id_fkey(name, avatar_url)
+          ''')
+          .eq('question_id', questionId)
+          .order('created_at', ascending: true);
+      return response;
+    } catch (e) {
+      print('Error getting question replies: $e');
+      return [];
+    }
+  }
+
+  static Future<bool> createQuestionReply(String questionId, String content) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return false;
+
+      await _client.from('question_replies').insert({
+        'question_id': questionId,
+        'user_id': user.id,
+        'content': content,
+      });
+
+      return true;
+    } catch (e) {
+      print('Error creating question reply: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> markQuestionSolution(String questionId, String replyId) async {
+    try {
+      // Reset previous solutions
+      await _client
+          .from('question_replies')
+          .update({'is_solution': false})
+          .eq('question_id', questionId);
+
+      // Mark selected reply
+      await _client
+          .from('question_replies')
+          .update({'is_solution': true})
+          .eq('id', replyId);
+
+      // Update question solved status
+      await _client
+          .from('questions')
+          .update({'solved': true})
+          .eq('id', questionId);
+
+      return true;
+    } catch (e) {
+      print('Error marking question solution: $e');
+      return false;
     }
   }
 

@@ -7,6 +7,7 @@ class CustomCard extends StatelessWidget {
   final Color? backgroundColor;
   final double? elevation;
   final BorderRadius? borderRadius;
+  final VoidCallback? onTap;
 
   const CustomCard({
     super.key,
@@ -16,15 +17,17 @@ class CustomCard extends StatelessWidget {
     this.backgroundColor,
     this.elevation,
     this.borderRadius,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final radius = borderRadius ?? BorderRadius.circular(12);
     return Container(
       margin: margin,
       decoration: BoxDecoration(
         color: backgroundColor ?? Theme.of(context).colorScheme.surface,
-        borderRadius: borderRadius ?? BorderRadius.circular(12),
+        borderRadius: radius,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -33,9 +36,21 @@ class CustomCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Padding(
-        padding: padding ?? const EdgeInsets.all(16),
-        child: child,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: radius,
+        child: InkWell(
+          borderRadius: radius,
+          onTap: onTap,
+          splashColor: onTap != null
+              ? Theme.of(context).colorScheme.primary.withOpacity(0.08)
+              : Colors.transparent,
+          highlightColor: Colors.transparent,
+          child: Padding(
+            padding: padding ?? const EdgeInsets.all(16),
+            child: child,
+          ),
+        ),
       ),
     );
   }

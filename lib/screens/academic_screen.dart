@@ -3,6 +3,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../widgets/common_widgets.dart';
+import '../models/post.dart';
+import 'question_detail_screen.dart';
 
 class AcademicScreen extends StatefulWidget {
   const AcademicScreen({super.key});
@@ -11,11 +13,14 @@ class AcademicScreen extends StatefulWidget {
   State<AcademicScreen> createState() => _AcademicScreenState();
 }
 
+enum QuestionFilter { all, mine }
+
 class _AcademicScreenState extends State<AcademicScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _selectedDay = 'Monday';
   String _searchQuery = '';
+  QuestionFilter _questionFilter = QuestionFilter.all;
 
   @override
   void initState() {
@@ -374,61 +379,63 @@ class _AcademicScreenState extends State<AcademicScreen>
   }
 
   Widget _buildQnATab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CustomCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Diễn đàn hỏi đáp',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Diễn đàn hỏi đáp',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Đặt câu hỏi và giúp đỡ bạn bè',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                          ),
-                        ),
-                      ],
+                  ),
+                  CustomButton(
+                    text: 'Đặt câu hỏi',
+                    size: ButtonSize.small,
+                    icon: LucideIcons.plus,
+                    onPressed: () => _showAskQuestionSheet(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Đặt câu hỏi và hỗ trợ bạn bè trong lớp học.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withOpacity(0.6),
                     ),
-                    CustomButton(
-                      text: 'Đặt câu hỏi',
-                      size: ButtonSize.small,
-                      icon: LucideIcons.plus,
-                      onPressed: () {},
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                CustomInput(
-                  hintText: 'Tìm kiếm câu hỏi...',
-                  prefixIcon: LucideIcons.search,
-                  onChanged: (value) {
-                    setState(() {
-                      _searchQuery = value;
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-                _buildQuestionsList(),
-              ],
-            ),
+              ),
+              const SizedBox(height: 12),
+              CustomInput(
+                hintText: 'Tìm kiếm câu hỏi...',
+                prefixIcon: LucideIcons.search,
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value;
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildQuestionFilters(context),
+            ],
           ),
-        ],
-      ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: _buildQuestionsList(),
+          ),
+        ),
+      ],
     );
   }
 
@@ -453,10 +460,36 @@ class _AcademicScreenState extends State<AcademicScreen>
           );
         }
 
-        final filteredQuestions = appProvider.questions.where((q) =>
+        var filteredQuestions = appProvider.questions.where((q) =>
             q.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
             q.course.toLowerCase().contains(_searchQuery.toLowerCase())
         ).toList();
+
+        if (_questionFilter == QuestionFilter.mine) {
+          final currentUserId = appProvider.currentUser?.id;
+          filteredQuestions = filteredQuestions
+              .where((q) => q.userId != null && q.userId == currentUserId)
+              .toList();
+        }
+
+        if (filteredQuestions.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text(
+                _questionFilter == QuestionFilter.mine
+                    ? 'Bạn chưa đăng câu hỏi nào'
+                    : 'Không tìm thấy câu hỏi phù hợp',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withOpacity(0.6),
+                    ),
+              ),
+            ),
+          );
+        }
 
         return Column(
           children: filteredQuestions.map((question) => _buildQuestionCard(question)).toList(),
@@ -465,16 +498,10 @@ class _AcademicScreenState extends State<AcademicScreen>
     );
   }
 
-  Widget _buildQuestionCard(dynamic question) {
-    return Container(
+  Widget _buildQuestionCard(Question question) {
+    return CustomCard(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      onTap: () => _openQuestionDetail(question),
       child: Row(
         children: [
           CustomAvatar(
@@ -507,9 +534,23 @@ class _AcademicScreenState extends State<AcademicScreen>
                 Text(
                   question.title,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                        fontWeight: FontWeight.w600,
+                      ),
                 ),
+                if (question.content.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    question.content,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withOpacity(0.7),
+                        ),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -517,8 +558,11 @@ class _AcademicScreenState extends State<AcademicScreen>
                     Text(
                       '${question.author} • ${question.time}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                      ),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withOpacity(0.6),
+                          ),
                     ),
                     Row(
                       children: [
@@ -531,8 +575,11 @@ class _AcademicScreenState extends State<AcademicScreen>
                         Text(
                           '${question.replies}',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                          ),
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withOpacity(0.6),
+                              ),
                         ),
                       ],
                     ),
@@ -542,6 +589,170 @@ class _AcademicScreenState extends State<AcademicScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildQuestionFilters(BuildContext context) {
+    return Row(
+      children: [
+        ChoiceChip(
+          label: const Text('Tất cả'),
+          selected: _questionFilter == QuestionFilter.all,
+          onSelected: (value) {
+            if (!value) return;
+            setState(() {
+              _questionFilter = QuestionFilter.all;
+            });
+          },
+        ),
+        const SizedBox(width: 8),
+        ChoiceChip(
+          label: const Text('Câu hỏi của tôi'),
+          selected: _questionFilter == QuestionFilter.mine,
+          onSelected: (value) {
+            if (!value) return;
+            setState(() {
+              _questionFilter = QuestionFilter.mine;
+            });
+          },
+        ),
+      ],
+    );
+  }
+
+  void _showAskQuestionSheet(BuildContext context) {
+    final titleController = TextEditingController();
+    final courseController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool isSubmitting = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          child: StatefulBuilder(
+            builder: (context, modalSetState) {
+              Future<void> submit() async {
+                if (!formKey.currentState!.validate()) return;
+                modalSetState(() => isSubmitting = true);
+
+                final success = await Provider.of<AppProvider>(context, listen: false)
+                    .createQuestion({
+                  'title': titleController.text.trim(),
+                  'course': courseController.text.trim(),
+                  'content': descriptionController.text.trim(),
+                  'solved': false,
+                });
+
+                modalSetState(() => isSubmitting = false);
+
+                if (success && context.mounted) {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Đăng câu hỏi thành công')),
+                  );
+                } else if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Không thể đăng câu hỏi'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+
+              return Padding(
+                padding: const EdgeInsets.all(24),
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'Đặt câu hỏi mới',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      CustomInput(
+                        labelText: 'Tiêu đề câu hỏi',
+                        controller: titleController,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Vui lòng nhập tiêu đề';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      CustomInput(
+                        labelText: 'Chủ đề / Môn học',
+                        controller: courseController,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Vui lòng nhập chủ đề';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      CustomInput(
+                        labelText: 'Mô tả chi tiết',
+                        controller: descriptionController,
+                        maxLines: 5,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Vui lòng mô tả vấn đề';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: CustomButton(
+                          text: 'Đăng câu hỏi',
+                          icon: LucideIcons.send,
+                          onPressed: isSubmitting ? null : submit,
+                          isLoading: isSubmitting,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  void _openQuestionDetail(Question question) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => QuestionDetailScreen(question: question),
       ),
     );
   }
