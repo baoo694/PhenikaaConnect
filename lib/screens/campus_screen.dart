@@ -142,39 +142,39 @@ class _CampusScreenState extends State<CampusScreen>
   }
 
   Widget _buildMapTab() {
-    return SingleChildScrollView(
+    return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CustomCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Text(
+            'Bản đồ trường học',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Tìm đường trong khuôn viên Phenikaa',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                ),
+          ),
+          const SizedBox(height: 16),
+          CustomInput(
+            hintText: 'Tìm kiếm địa điểm...',
+            prefixIcon: LucideIcons.search,
+            onChanged: (value) {
+              setState(() {
+                _searchQuery = value;
+              });
+            },
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: ListView(
+              physics: const BouncingScrollPhysics(),
               children: [
-                Text(
-                  'Bản đồ trường học',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Tìm đường trong khuôn viên Phenikaa',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                CustomInput(
-                  hintText: 'Tìm kiếm địa điểm...',
-                  prefixIcon: LucideIcons.search,
-                  onChanged: (value) {
-                    setState(() {
-                      _searchQuery = value;
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
                 _buildMapPlaceholder(),
                 const SizedBox(height: 16),
                 _buildPopularLocations(),

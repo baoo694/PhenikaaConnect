@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../models/user.dart' as app_models;
 import '../models/post.dart';
 import '../models/event.dart';
+import '../models/course.dart';
 import '../config/supabase_config.dart';
 
 class SupabaseService {
@@ -131,6 +132,22 @@ class SupabaseService {
           .limit(5);
       print('Locations table response: $locationsResponse');
       print('Locations count: ${locationsResponse.length}');
+
+      print('Testing class schedules table...');
+      final classSchedulesResponse = await _client
+          .from('class_schedules')
+          .select('*')
+          .limit(5);
+      print('Class schedules response: $classSchedulesResponse');
+      print('Class schedules count: ${classSchedulesResponse.length}');
+
+      print('Testing courses table...');
+      final coursesResponse = await _client
+          .from('courses')
+          .select('*')
+          .limit(5);
+      print('Courses response: $coursesResponse');
+      print('Courses count: ${coursesResponse.length}');
       
       print('Testing users table...');
       final usersResponse = await _client
@@ -388,6 +405,64 @@ class SupabaseService {
       return response;
     } catch (e) {
       print('Error getting locations: $e');
+      return [];
+    }
+  }
+
+  static Future<List<Course>> getCourses({String? userId}) async {
+    try {
+      final effectiveUserId = userId ?? _client.auth.currentUser?.id;
+      if (effectiveUserId == null) {
+        print('Cannot load courses without user id');
+        return [];
+      }
+
+      print('Fetching courses from Supabase...');
+      final response = await _client
+          .from('courses')
+          .select('*')
+          .eq('user_id', effectiveUserId)
+          .order('name', ascending: true);
+
+      return response.map<Course>((json) => Course.fromJson(json)).toList();
+    } catch (e) {
+      print('Error getting courses: $e');
+      return [];
+    }
+  }
+
+  static Future<List<ClassSchedule>> getClassSchedules({String? userId}) async {
+    try {
+      final effectiveUserId = userId ?? _client.auth.currentUser?.id;
+      if (effectiveUserId == null) {
+        print('Cannot load class schedules without a user id');
+        return [];
+      }
+
+      final response = await _client
+          .from('class_schedules')
+          .select('*')
+          .eq('user_id', effectiveUserId)
+          .order('day_of_week', ascending: true)
+          .order('start_time', ascending: true);
+
+      return response.map<ClassSchedule>((json) {
+        final startTime = _parseTimeOfDay(json['start_time']);
+        final endTime = _parseTimeOfDay(json['end_time']);
+        return ClassSchedule(
+          id: json['id']?.toString() ?? '',
+          day: (json['day_of_week'] ?? '').toString(),
+          time: _formatScheduleRange(startTime, endTime),
+          subject: (json['subject'] ?? '').toString(),
+          room: (json['room'] ?? '').toString(),
+          instructor: (json['instructor'] ?? '').toString(),
+          color: (json['color'] ?? 'from-blue-500 to-blue-600').toString(),
+          startTime: startTime,
+          endTime: endTime,
+        );
+      }).toList();
+    } catch (e) {
+      print('Error getting class schedules: $e');
       return [];
     }
   }
@@ -880,5 +955,33 @@ class SupabaseService {
 
   static String _formatTime(String time) {
     return time.substring(0, 5); // HH:MM format
+  }
+
+  static DateTime? _parseTimeOfDay(dynamic raw) {
+    if (raw == null) return null;
+    final timeString = raw.toString();
+    if (timeString.isEmpty) return null;
+    final parts = timeString.split(':');
+    if (parts.length < 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    return DateTime(1970, 1, 1, hour, minute);
+  }
+
+  static String? _formatHourMinute(DateTime? time) {
+    if (time == null) return null;
+    final hours = time.hour.toString().padLeft(2, '0');
+    final minutes = time.minute.toString().padLeft(2, '0');
+    return '$hours:$minutes';
+  }
+
+  static String _formatScheduleRange(DateTime? start, DateTime? end) {
+    final startText = _formatHourMinute(start);
+    final endText = _formatHourMinute(end);
+    if (startText != null && endText != null) {
+      return '$startText - $endText';
+    }
+    return startText ?? endText ?? '';
   }
 }

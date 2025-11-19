@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../models/post.dart';
 import '../models/event.dart';
+import '../models/course.dart';
 import '../services/supabase_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -21,6 +22,10 @@ class AppProvider extends ChangeNotifier {
   // Study Groups
   List<StudyGroup> _studyGroups = [];
   List<StudyGroup> get studyGroups => _studyGroups;
+
+  // Class schedules
+  List<ClassSchedule> _classSchedules = [];
+  List<ClassSchedule> get classSchedules => _classSchedules;
 
   // Events
   List<Event> _events = [];
@@ -52,6 +57,10 @@ class AppProvider extends ChangeNotifier {
   List<Map<String, dynamic>> _locations = [];
   List<Map<String, dynamic>> get locations => _locations;
 
+  // Courses
+  List<Course> _courses = [];
+  List<Course> get courses => _courses;
+
   // Selected Tab
   int _selectedTabIndex = 0;
   int get selectedTabIndex => _selectedTabIndex;
@@ -67,6 +76,10 @@ class AppProvider extends ChangeNotifier {
   // Loading states
   bool _isLoading = false;
   bool get isLoading => _isLoading;
+  bool _isScheduleLoading = false;
+  bool get isScheduleLoading => _isScheduleLoading;
+  bool _isCoursesLoading = false;
+  bool get isCoursesLoading => _isCoursesLoading;
 
   // Notification Settings
   List<Map<String, dynamic>> _notificationSettings = [
@@ -93,6 +106,8 @@ class AppProvider extends ChangeNotifier {
     await _loadReadAnnouncementIdsFromPrefs();
     await loadAnnouncements();
     await loadLocations();
+    await loadClassSchedule();
+    await loadCourses();
   }
 
   // Load current user
@@ -210,6 +225,67 @@ class AppProvider extends ChangeNotifier {
       print('Error loading locations: $e');
       _locations = [];
     }
+    notifyListeners();
+  }
+
+  // Load class schedule
+  Future<void> loadClassSchedule() async {
+    final userId = _currentUser?.id;
+    if (userId == null) {
+      _classSchedules = [];
+      _isScheduleLoading = false;
+      notifyListeners();
+      return;
+    }
+
+    _isScheduleLoading = true;
+    notifyListeners();
+
+    try {
+      _classSchedules = await SupabaseService.getClassSchedules(userId: userId);
+    } catch (e) {
+      print('Error loading class schedule: $e');
+      _classSchedules = [];
+    }
+
+    _isScheduleLoading = false;
+    notifyListeners();
+  }
+
+  List<ClassSchedule> getSchedulesForDay(String day) {
+    final normalizedDay = day.toLowerCase();
+    final schedules = _classSchedules
+        .where((schedule) => schedule.day.toLowerCase() == normalizedDay)
+        .toList();
+    schedules.sort((a, b) {
+      final aStart = a.startTime ?? DateTime(1970, 1, 1);
+      final bStart = b.startTime ?? DateTime(1970, 1, 1);
+      return aStart.compareTo(bStart);
+    });
+    return schedules;
+  }
+
+  Future<void> loadCourses() async {
+    final userId = _currentUser?.id;
+    if (userId == null) {
+      _courses = [];
+      _isCoursesLoading = false;
+      notifyListeners();
+      return;
+    }
+
+    _isCoursesLoading = true;
+    notifyListeners();
+
+    try {
+      _courses = await SupabaseService.getCourses(userId: userId);
+      print('Loaded ${_courses.length} courses from Supabase');
+    } catch (e) {
+      print('Error loading courses: $e');
+      _courses = [];
+    }
+
+    _isCoursesLoading = false;
     notifyListeners();
   }
 
@@ -404,6 +480,10 @@ class AppProvider extends ChangeNotifier {
   Future<void> signOut() async {
     await SupabaseService.signOut();
     _currentUser = null;
+    _isScheduleLoading = false;
+    _isCoursesLoading = false;
+    _classSchedules = [];
+    _courses = [];
     notifyListeners();
   }
 

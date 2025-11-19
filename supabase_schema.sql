@@ -99,6 +99,42 @@ CREATE TABLE study_group_members (
     UNIQUE(group_id, user_id)
 );
 
+-- Class schedules table
+CREATE TABLE class_schedules (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    day_of_week VARCHAR(16) NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    subject VARCHAR(255) NOT NULL,
+    room VARCHAR(50),
+    instructor VARCHAR(255),
+    color VARCHAR(50) DEFAULT 'from-blue-500 to-blue-600',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_class_schedules_user ON class_schedules(user_id);
+CREATE INDEX idx_class_schedules_day ON class_schedules(day_of_week);
+CREATE INDEX idx_class_schedules_start_time ON class_schedules(start_time);
+
+-- Courses table (per-user course tracking)
+CREATE TABLE courses (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    code VARCHAR(50) NOT NULL,
+    instructor VARCHAR(255) NOT NULL,
+    questions INTEGER DEFAULT 0,
+    members INTEGER DEFAULT 0,
+    progress INTEGER DEFAULT 0,
+    color VARCHAR(20) DEFAULT '#3B82F6',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_courses_user_id ON courses(user_id);
+CREATE INDEX idx_courses_progress ON courses(progress);
+
 -- Events table
 CREATE TABLE events (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -232,6 +268,7 @@ CREATE TRIGGER update_study_groups_updated_at BEFORE UPDATE ON study_groups FOR 
 CREATE TRIGGER update_events_updated_at BEFORE UPDATE ON events FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_clubs_updated_at BEFORE UPDATE ON clubs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_announcements_updated_at BEFORE UPDATE ON announcements FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_courses_updated_at BEFORE UPDATE ON courses FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Row Level Security (RLS) policies
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
@@ -250,6 +287,8 @@ ALTER TABLE announcements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_rooms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_room_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE class_schedules ENABLE ROW LEVEL SECURITY;
+ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
 
 -- Basic RLS policies (allow all for now, can be refined later)
 CREATE POLICY "Allow all operations for authenticated users" ON users FOR ALL USING (auth.role() = 'authenticated');
@@ -268,6 +307,8 @@ CREATE POLICY "Allow all operations for authenticated users" ON announcements FO
 CREATE POLICY "Allow all operations for authenticated users" ON chat_rooms FOR ALL USING (auth.role() = 'authenticated');
 CREATE POLICY "Allow all operations for authenticated users" ON chat_room_members FOR ALL USING (auth.role() = 'authenticated');
 CREATE POLICY "Allow all operations for authenticated users" ON messages FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "Allow all operations for authenticated users" ON class_schedules FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "Allow all operations for authenticated users" ON courses FOR ALL USING (auth.role() = 'authenticated');
 
 -- Public read access for locations
 CREATE POLICY "Allow public read access" ON locations FOR SELECT USING (true);

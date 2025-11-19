@@ -75,6 +75,28 @@ INSERT INTO study_group_members (group_id, user_id) VALUES
 ('880e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440004'),
 ('880e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440005');
 
+-- Insert sample class schedules
+INSERT INTO class_schedules (id, user_id, day_of_week, start_time, end_time, subject, room, instructor, color) VALUES
+('aa1e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440001', 'Monday', '07:30:00', '09:00:00', 'Giải tích 2', 'A101', 'TS. Nguyễn Minh', '#3B82F6'),
+('aa1e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440001', 'Monday', '09:15:00', '11:00:00', 'Cấu trúc dữ liệu', 'Lab B203', 'ThS. Phạm Hoàng', '#6366F1'),
+('aa1e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440001', 'Tuesday', '08:00:00', '09:30:00', 'Xác suất thống kê', 'A205', 'TS. Lê Hồng', '#10B981'),
+('aa1e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440001', 'Wednesday', '13:30:00', '15:30:00', 'Lập trình Flutter', 'Lab C101', 'ThS. Đinh Quang', '#F59E0B'),
+('aa1e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440001', 'Thursday', '07:30:00', '09:30:00', 'Hệ điều hành', 'B102', 'TS. Nguyễn An', '#EF4444'),
+('aa1e8400-e29b-41d4-a716-446655440006', '550e8400-e29b-41d4-a716-446655440001', 'Friday', '09:45:00', '11:15:00', 'Kỹ năng mềm', 'A302', 'TS. Trần Mai', '#0EA5E9'),
+('aa1e8400-e29b-41d4-a716-446655440007', '550e8400-e29b-41d4-a716-446655440002', 'Monday', '10:00:00', '12:00:00', 'Nguyên lý Marketing', 'C201', 'ThS. Lưu Hạnh', '#EC4899'),
+('aa1e8400-e29b-41d4-a716-446655440008', '550e8400-e29b-41d4-a716-446655440002', 'Wednesday', '08:00:00', '09:30:00', 'Quản trị tài chính', 'B301', 'TS. Hà Yến', '#84CC16'),
+('aa1e8400-e29b-41d4-a716-446655440009', '550e8400-e29b-41d4-a716-446655440002', 'Friday', '13:30:00', '15:00:00', 'Kỹ năng thuyết trình', 'A401', 'ThS. Võ Nam', '#F97316');
+
+-- Insert sample courses (per user)
+INSERT INTO courses (id, user_id, name, code, instructor, questions, members, progress, color) VALUES
+('cc1e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440001', 'Cấu trúc dữ liệu', 'CS201', 'ThS. Phạm Hoàng', 12, 45, 65, '#6366F1'),
+('cc1e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440001', 'Lập trình Flutter', 'CS305', 'ThS. Đinh Quang', 8, 38, 40, '#F97316'),
+('cc1e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440001', 'Hệ điều hành', 'CS210', 'TS. Nguyễn An', 6, 42, 55, '#0EA5E9'),
+('cc1e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440001', 'Xác suất thống kê', 'MA203', 'TS. Lê Hồng', 4, 35, 80, '#10B981'),
+('cc1e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440002', 'Chiến lược Marketing', 'MK202', 'TS. Trương Lan', 10, 50, 70, '#EC4899'),
+('cc1e8400-e29b-41d4-a716-446655440006', '550e8400-e29b-41d4-a716-446655440002', 'Phân tích tài chính', 'FN301', 'TS. Hà Yến', 5, 32, 45, '#84CC16'),
+('cc1e8400-e29b-41d4-a716-446655440007', '550e8400-e29b-41d4-a716-446655440002', 'Kỹ năng thuyết trình', 'SK105', 'ThS. Võ Nam', 2, 28, 90, '#FBBF24');
+
 -- Insert sample events
 INSERT INTO events (id, organizer_id, title, description, event_date, event_time, location, category, max_attendees, attendees_count) VALUES
 ('990e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440001', 'AI Workshop 2024', 'Workshop về trí tuệ nhân tạo và ứng dụng thực tế', '2024-12-15', '09:00:00', 'Hội trường A', 'Học thuật', 100, 45),

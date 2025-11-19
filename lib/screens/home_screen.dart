@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
 import '../widgets/common_widgets.dart';
 import '../models/chat.dart';
+import '../models/course.dart';
 import 'announcements_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -18,74 +20,79 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Phenikaa Connect',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                background: Paint()
-                  ..shader = const LinearGradient(
-                    colors: [Color(0xFF2563EB), Color(0xFF7C3AED), Color(0xFFDB2777)],
-                  ).createShader(const Rect.fromLTWH(0.0, 0.0, 200.0, 70.0)),
-              ),
-            ),
-            Text(
-              'Hệ sinh thái số cho sinh viên',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          Consumer<AppProvider>(
-            builder: (context, appProvider, child) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+        automaticallyImplyLeading: false,
+        leadingWidth: 0,
+        titleSpacing: 16,
+        title: Consumer<AppProvider>(
+          builder: (context, appProvider, child) {
+            return Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Phenikaa Connect',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                      Text(
+                        'Hệ sinh thái số cho sinh viên',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withOpacity(0.7),
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          appProvider.currentUser?.name ?? 'User',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    Text(
+                      appProvider.currentUser?.name ?? 'User',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
-                        ),
-                        Text(
-                          'MSSV: ${appProvider.currentUser?.studentId ?? 'N/A'}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                          ),
-                        ),
-                      ],
                     ),
-                    const SizedBox(width: 12),
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      child: Text(
-                        (appProvider.currentUser?.name ?? 'U')
-                            .split(' ')
-                            .map((n) => n[0])
-                            .join(''),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                    Text(
+                      'MSSV: ${appProvider.currentUser?.studentId ?? 'N/A'}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withOpacity(0.7),
+                          ),
                     ),
                   ],
                 ),
-              );
-            },
-          ),
-        ],
+                const SizedBox(width: 12),
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  child: Text(
+                    (appProvider.currentUser?.name ?? 'U')
+                        .split(' ')
+                        .where((part) => part.isNotEmpty)
+                        .map((n) => n[0])
+                        .take(2)
+                        .join('')
+                        .toUpperCase(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -117,6 +124,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildWelcomeSection(BuildContext context) {
+    final now = DateTime.now();
+    final greeting = _greetingForTime(now);
+    final dateText =
+        'Hôm nay là ${_weekdayToVietnamese(now.weekday)}, ${now.day} Tháng ${now.month}, ${now.year}';
+    final todayEnglish = _weekdayToEnglish(now.weekday);
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -131,7 +144,7 @@ class _HomeScreenState extends State<HomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Chào buổi sáng! 👋',
+            '$greeting 👋',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -139,7 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Hôm nay là Thứ Hai, 21 Tháng 10, 2025',
+            dateText,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Colors.white.withOpacity(0.9),
             ),
@@ -148,9 +161,15 @@ class _HomeScreenState extends State<HomeScreen> {
           Consumer<AppProvider>(
             builder: (context, appProvider, child) {
               final announcementsCount = appProvider.unreadAnnouncementsCount;
+              final scheduleCount = appProvider.isScheduleLoading
+                  ? null
+                  : appProvider.getSchedulesForDay(todayEnglish).length;
+              final scheduleText = appProvider.isScheduleLoading
+                  ? 'Đang tải lịch học...'
+                  : '$scheduleCount lớp học hôm nay';
               return Row(
                 children: [
-                  _buildBadge(context, '0 lớp học hôm nay'),
+                  _buildBadge(context, scheduleText),
                   const SizedBox(width: 8),
                   _buildBadge(
                     context,
@@ -311,47 +330,73 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildTodaySchedule(BuildContext context) {
+    final todayName = _weekdayToEnglish(DateTime.now().weekday);
     return CustomCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Consumer<AppProvider>(
+        builder: (context, appProvider, child) {
+          final isLoading = appProvider.isScheduleLoading;
+          final schedules = appProvider.getSchedulesForDay(todayName);
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Icon(
-                    LucideIcons.clock,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 20,
+                  Row(
+                    children: [
+                      Icon(
+                        LucideIcons.clock,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Lịch học hôm nay',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Lịch học hôm nay',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                  TextButton(
+                    onPressed: () => _navigateToSchedule(context),
+                    child: const Text('Xem tất cả'),
                   ),
                 ],
               ),
-              TextButton(
-                onPressed: () {},
-                child: const Text('Xem tất cả'),
-              ),
+              const SizedBox(height: 16),
+              if (isLoading)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              else if (schedules.isEmpty)
+                Center(
+                  child: Text(
+                    'Chưa có lịch học cho hôm nay',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withOpacity(0.6),
+                        ),
+                  ),
+                )
+              else
+                Column(
+                  children: schedules.take(3).map((cls) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildTodayClassTile(context, cls),
+                    );
+                  }).toList(),
+                ),
             ],
-          ),
-          const SizedBox(height: 16),
-          // TODO: Implement today's classes from Supabase when data is available
-          // Hiện tại chưa có dữ liệu lịch học trong database → hiển thị trạng thái trống
-          Center(
-            child: Text(
-              'Chưa có lịch học cho hôm nay',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-              ),
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -417,6 +462,107 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildTodayClassTile(BuildContext context, ClassSchedule cls) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: _homeScheduleGradient(cls.color),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            height: 44,
+            width: 44,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              LucideIcons.bookOpen,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  cls.subject,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${cls.time} • ${cls.room}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white.withOpacity(0.85),
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  LinearGradient _homeScheduleGradient(String? color) {
+    final baseColor = _colorFromHex(color);
+    return LinearGradient(
+      colors: [
+        baseColor,
+        Color.lerp(baseColor, Colors.black, 0.2) ?? baseColor,
+      ],
+      begin: Alignment.centerLeft,
+      end: Alignment.centerRight,
+    );
+  }
+
+  Color _colorFromHex(String? color) {
+    if (color == null || color.isEmpty) {
+      return const Color(0xFF3B82F6);
+    }
+    var cleaned = color.replaceAll('#', '').trim();
+    if (cleaned.length == 3) {
+      cleaned = cleaned.split('').map((char) => '$char$char').join();
+    }
+    if (cleaned.length == 6) {
+      cleaned = 'ff$cleaned';
+    } else if (cleaned.length != 8) {
+      cleaned = 'ff3b82f6';
+    }
+    try {
+      return Color(int.parse(cleaned, radix: 16));
+    } catch (_) {
+      return const Color(0xFF3B82F6);
+    }
+  }
+
+  String _weekdayToEnglish(int weekday) {
+    switch (weekday) {
+      case DateTime.monday:
+        return 'Monday';
+      case DateTime.tuesday:
+        return 'Tuesday';
+      case DateTime.wednesday:
+        return 'Wednesday';
+      case DateTime.thursday:
+        return 'Thursday';
+      case DateTime.friday:
+        return 'Friday';
+      case DateTime.saturday:
+        return 'Saturday';
+      case DateTime.sunday:
+        return 'Sunday';
+      default:
+        return 'Monday';
+    }
   }
 
   Widget _buildAnnouncementsAndEvents(BuildContext context) {
@@ -884,5 +1030,37 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+
+  String _weekdayToVietnamese(int weekday) {
+    switch (weekday) {
+      case DateTime.monday:
+        return 'Thứ Hai';
+      case DateTime.tuesday:
+        return 'Thứ Ba';
+      case DateTime.wednesday:
+        return 'Thứ Tư';
+      case DateTime.thursday:
+        return 'Thứ Năm';
+      case DateTime.friday:
+        return 'Thứ Sáu';
+      case DateTime.saturday:
+        return 'Thứ Bảy';
+      case DateTime.sunday:
+        return 'Chủ Nhật';
+      default:
+        return 'Thứ Hai';
+    }
+  }
+
+  String _greetingForTime(DateTime dateTime) {
+    final hour = dateTime.hour;
+    if (hour < 12) {
+      return 'Chào buổi sáng!';
+    } else if (hour < 18) {
+      return 'Chào buổi chiều!';
+    } else {
+      return 'Chào buổi tối!';
+    }
   }
 }
