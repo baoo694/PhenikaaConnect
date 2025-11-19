@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/post.dart';
 import '../providers/app_provider.dart';
 import '../services/supabase_service.dart';
@@ -22,6 +23,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
   List<Map<String, dynamic>> _replies = [];
   bool _isSolved = false;
   bool _isOwner = false;
+  RealtimeChannel? _repliesChannel;
 
   @override
   void initState() {
@@ -31,12 +33,33 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
         Provider.of<AppProvider>(context, listen: false).currentUser?.id;
     _isOwner = currentUserId != null && currentUserId == widget.question.userId;
     _loadReplies();
+    _subscribeToReplies();
   }
 
   @override
   void dispose() {
     _replyController.dispose();
+    _repliesChannel?.unsubscribe();
+    _repliesChannel = null;
     super.dispose();
+  }
+
+  void _subscribeToReplies() {
+    _repliesChannel = Supabase.instance.client
+        .channel('question_replies_${widget.question.id}')
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.insert,
+        schema: 'public',
+        table: 'question_replies',
+        callback: (payload) async {
+          final newRecord = payload.newRecord;
+          if (newRecord != null &&
+              newRecord['question_id'] == widget.question.id) {
+            await _loadReplies();
+          }
+        },
+      )
+      ..subscribe();
   }
 
   Future<void> _loadReplies() async {
@@ -273,6 +296,14 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
               final reply = _replies[index];
               final user = reply['users'];
               final bool isSolution = reply['is_solution'] == true;
+              final replyOwnerId = reply['user_id']?.toString();
+              final canMarkSolution = _isOwner &&
+                  !_isSolved &&
+                  !isSolution &&
+                  replyOwnerId !=
+                      Provider.of<AppProvider>(context, listen: false)
+                          .currentUser
+                          ?.id;
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -314,7 +345,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
                                     .withOpacity(0.6),
                               ),
                         ),
-                        if (_isOwner && !_isSolved && !isSolution) ...[
+                        if (canMarkSolution) ...[
                           const SizedBox(height: 8),
                           Align(
                             alignment: Alignment.centerLeft,

@@ -6,6 +6,7 @@ import '../providers/app_provider.dart';
 import '../widgets/common_widgets.dart';
 import '../models/post.dart';
 import '../models/course.dart';
+import '../services/group_reminder_service.dart';
 import 'question_detail_screen.dart';
 
 class AcademicScreen extends StatefulWidget {
@@ -791,10 +792,13 @@ class _AcademicScreenState extends State<AcademicScreen>
 
   void _showAskQuestionSheet(BuildContext context) {
     final titleController = TextEditingController();
-    final courseController = TextEditingController();
     final descriptionController = TextEditingController();
     final formKey = GlobalKey<FormState>();
     bool isSubmitting = false;
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final courseOptions = appProvider.courses;
+    String? selectedCourse =
+        courseOptions.isNotEmpty ? courseOptions.first.name : null;
 
     showModalBottomSheet(
       context: context,
@@ -816,7 +820,7 @@ class _AcademicScreenState extends State<AcademicScreen>
                 final success = await Provider.of<AppProvider>(context, listen: false)
                     .createQuestion({
                   'title': titleController.text.trim(),
-                  'course': courseController.text.trim(),
+                  'course': selectedCourse,
                   'content': descriptionController.text.trim(),
                   'solved': false,
                 });
@@ -873,12 +877,26 @@ class _AcademicScreenState extends State<AcademicScreen>
                         },
                       ),
                       const SizedBox(height: 12),
-                      CustomInput(
-                        labelText: 'Chủ đề / Môn học',
-                        controller: courseController,
+                      DropdownButtonFormField<String>(
+                        value: selectedCourse,
+                        items: courseOptions
+                            .map((course) => DropdownMenuItem<String>(
+                                  value: course.name,
+                                  child: Text(course.name),
+                                ))
+                            .toList(),
+                        onChanged: (value) {
+                          modalSetState(() {
+                            selectedCourse = value;
+                          });
+                        },
+                        decoration: const InputDecoration(
+                          labelText: 'Chủ đề / Môn học',
+                          border: OutlineInputBorder(),
+                        ),
                         validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Vui lòng nhập chủ đề';
+                          if (value == null || value.isEmpty) {
+                            return 'Vui lòng chọn môn học';
                           }
                           return null;
                         },
@@ -925,16 +943,28 @@ class _AcademicScreenState extends State<AcademicScreen>
     );
   }
 
-  void _showCreateGroupSheet(BuildContext context) {
-    final nameController = TextEditingController();
+  void _showCreateGroupSheet(BuildContext context, {StudyGroup? editingGroup}) {
+    final nameController =
+        TextEditingController(text: editingGroup?.name ?? '');
+    final descriptionController =
+        TextEditingController(text: editingGroup?.description ?? '');
     final formKey = GlobalKey<FormState>();
     bool isSubmitting = false;
-    String? selectedCourse;
-    String? selectedLocation;
+    String? selectedCourse = editingGroup?.course;
+    String? selectedLocation = editingGroup?.location;
     DateTime? selectedDateTime;
+    if (editingGroup != null && editingGroup.meetTime.isNotEmpty) {
+      try {
+        selectedDateTime =
+            DateFormat('dd/MM/yyyy HH:mm').parse(editingGroup.meetTime);
+      } catch (_) {
+        selectedDateTime = null;
+      }
+    }
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     final courses = appProvider.courses;
     final locations = appProvider.locations;
+    final isEditing = editingGroup != null;
 
     showModalBottomSheet(
       context: context,
@@ -951,7 +981,16 @@ class _AcademicScreenState extends State<AcademicScreen>
             builder: (context, modalSetState) {
               Future<void> submit() async {
                 if (!formKey.currentState!.validate()) return;
-                if (selectedDateTime == null) {
+                DateTime? effectiveDateTime = selectedDateTime;
+                if (effectiveDateTime == null && editingGroup != null) {
+                  try {
+                    effectiveDateTime = DateFormat('dd/MM/yyyy HH:mm')
+                        .parse(editingGroup.meetTime);
+                  } catch (_) {
+                    effectiveDateTime = null;
+                  }
+                }
+                if (effectiveDateTime == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Vui lòng chọn ngày giờ gặp'),
@@ -960,28 +999,68 @@ class _AcademicScreenState extends State<AcademicScreen>
                   );
                   return;
                 }
+                if (selectedCourse == null || selectedLocation == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Vui lòng chọn đủ thông tin nhóm'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
                 modalSetState(() => isSubmitting = true);
 
-                final success = await Provider.of<AppProvider>(context, listen: false)
-                    .createStudyGroup({
+                final payload = {
                   'name': nameController.text.trim(),
                   'course': selectedCourse,
-                  'meet_time': DateFormat('dd/MM/yyyy HH:mm')
-                      .format(selectedDateTime!),
+                  'meet_time':
+                      DateFormat('dd/MM/yyyy HH:mm').format(effectiveDateTime),
                   'location': selectedLocation,
-                });
+                  'description': descriptionController.text.trim(),
+                };
+
+                final provider =
+                    Provider.of<AppProvider>(context, listen: false);
+                StudyGroup? createdGroup;
+                bool success;
+
+                if (isEditing) {
+                  success =
+                      await provider.updateStudyGroup(editingGroup!.id, payload);
+                  if (success) {
+                    createdGroup = editingGroup!.copyWith(
+                      name: payload['name'] as String?,
+                      course: payload['course'] as String?,
+                      meetTime: payload['meet_time'] as String?,
+                      location: payload['location'] as String?,
+                      description: payload['description'] as String?,
+                    );
+                  }
+                } else {
+                  createdGroup = await provider.createStudyGroup(payload);
+                  success = createdGroup != null;
+                }
 
                 modalSetState(() => isSubmitting = false);
 
                 if (success && context.mounted) {
                   Navigator.of(context).pop();
+                  if (createdGroup != null && createdGroup.isJoined) {
+                    GroupReminderService.scheduleReminder(createdGroup);
+                  }
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Tạo nhóm thành công')),
+                    SnackBar(
+                      content: Text(isEditing
+                          ? 'Đã cập nhật nhóm'
+                          : 'Tạo nhóm thành công'),
+                    ),
                   );
                 } else if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Không thể tạo nhóm'),
+                    SnackBar(
+                      content: Text(isEditing
+                          ? 'Không thể cập nhật nhóm'
+                          : 'Không thể tạo nhóm'),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -999,12 +1078,13 @@ class _AcademicScreenState extends State<AcademicScreen>
                       children: [
                         Row(
                           children: [
-                            Text(
-                              'Tạo nhóm học mới',
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        Text(
+                          isEditing ? 'Chỉnh sửa nhóm' : 'Tạo nhóm học mới',
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
                                     fontWeight: FontWeight.bold,
                                   ),
-                            ),
+                        ),
                             const Spacer(),
                             IconButton(
                               icon: const Icon(Icons.close),
@@ -1111,12 +1191,18 @@ class _AcademicScreenState extends State<AcademicScreen>
                             return null;
                           },
                         ),
+                        const SizedBox(height: 12),
+                        CustomInput(
+                          labelText: 'Mô tả nhóm',
+                          controller: descriptionController,
+                          maxLines: 3,
+                        ),
                         const SizedBox(height: 20),
                         SizedBox(
                           width: double.infinity,
                           child: CustomButton(
-                            text: 'Tạo nhóm',
-                            icon: LucideIcons.send,
+                            text: isEditing ? 'Lưu thay đổi' : 'Tạo nhóm',
+                            icon: isEditing ? LucideIcons.save : LucideIcons.send,
                             onPressed: isSubmitting ? null : submit,
                             isLoading: isSubmitting,
                           ),
@@ -1216,7 +1302,7 @@ class _AcademicScreenState extends State<AcademicScreen>
     );
   }
 
-  Widget _buildGroupCard(dynamic group) {
+  Widget _buildGroupCard(StudyGroup group) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -1260,59 +1346,187 @@ class _AcademicScreenState extends State<AcademicScreen>
             ],
           ),
           const SizedBox(height: 16),
-          Column(
+          if (group.description.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              group.description,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withOpacity(0.7),
+                  ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
             children: [
-              Row(
-                children: [
-                  const Icon(
-                    LucideIcons.clock,
-                    size: 16,
-                    color: Colors.grey,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      group.meetTime,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                      ),
-                    ),
-                  ),
-                ],
+              const Icon(
+                LucideIcons.clock,
+                size: 16,
+                color: Colors.grey,
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(
-                    LucideIcons.calendar,
-                    size: 16,
-                    color: Colors.grey,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      group.location,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  group.meetTime,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withOpacity(0.7),
                       ),
-                    ),
-                  ),
-                ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(
+                LucideIcons.calendar,
+                size: 16,
+                color: Colors.grey,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  group.location,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withOpacity(0.7),
+                      ),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: CustomButton(
-              text: 'Tham gia nhóm',
-              size: ButtonSize.small,
-              icon: LucideIcons.arrowRight,
-              onPressed: () {},
+          if (group.isOwner) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: CustomButton(
+                    text: 'Chỉnh sửa',
+                    type: ButtonType.outline,
+                    size: ButtonSize.small,
+                    icon: LucideIcons.edit,
+                    onPressed: () => _showCreateGroupSheet(
+                      context,
+                      editingGroup: group,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: CustomButton(
+                    text: 'Xóa nhóm',
+                    type: ButtonType.error,
+                    size: ButtonSize.small,
+                    icon: LucideIcons.trash,
+                    onPressed: () => _confirmDeleteGroup(group),
+                  ),
+                ),
+              ],
             ),
-          ),
+          ] else ...[
+            SizedBox(
+              width: double.infinity,
+              child: CustomButton(
+                text: group.isJoined ? 'Rời nhóm' : 'Tham gia nhóm',
+                size: ButtonSize.small,
+                icon: group.isJoined
+                    ? LucideIcons.logOut
+                    : LucideIcons.arrowRight,
+                type: group.isJoined ? ButtonType.outline : ButtonType.primary,
+                onPressed: () => group.isJoined
+                    ? _handleLeaveGroup(group)
+                    : _handleJoinGroup(group),
+              ),
+            ),
+          ],
         ],
       ),
+    );
+  }
+
+  Future<void> _handleJoinGroup(StudyGroup group) async {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final success = await appProvider.joinStudyGroup(group.id);
+    if (!mounted) return;
+    if (success) {
+      GroupReminderService.scheduleReminder(group);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Đã tham gia nhóm "${group.name}"')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể tham gia nhóm'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleLeaveGroup(StudyGroup group) async {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final success = await appProvider.leaveStudyGroup(group.id);
+    if (!mounted) return;
+    if (success) {
+      GroupReminderService.cancelReminder(group.id);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bạn đã rời nhóm "${group.name}"')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể rời nhóm'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _confirmDeleteGroup(StudyGroup group) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Xóa nhóm'),
+          content: Text('Bạn chắc chắn muốn xóa nhóm "${group.name}"?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Hủy'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                final appProvider =
+                    Provider.of<AppProvider>(context, listen: false);
+                final success = await appProvider.deleteStudyGroup(group.id);
+                if (!mounted) return;
+                if (success) {
+                  GroupReminderService.cancelReminder(group.id);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Đã xóa nhóm')),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Không thể xóa nhóm'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Xóa'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

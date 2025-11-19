@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
-import '../models/user.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../config/supabase_config.dart';
+import '../models/user.dart' as app_models;
 import '../models/post.dart';
 import '../models/event.dart';
 import '../models/course.dart';
 import '../services/supabase_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class AppProvider extends ChangeNotifier {
   // Current User
-  User? _currentUser;
-  User? get currentUser => _currentUser;
+  app_models.User? _currentUser;
+  app_models.User? get currentUser => _currentUser;
 
   // Posts
   List<Post> _posts = [];
@@ -81,6 +83,8 @@ class AppProvider extends ChangeNotifier {
   bool _isCoursesLoading = false;
   bool get isCoursesLoading => _isCoursesLoading;
 
+  RealtimeChannel? _questionRepliesChannel;
+
   // Notification Settings
   List<Map<String, dynamic>> _notificationSettings = [
     {'id': 1, 'label': 'Thông báo từ trường', 'enabled': true},
@@ -108,6 +112,7 @@ class AppProvider extends ChangeNotifier {
     await loadLocations();
     await loadClassSchedule();
     await loadCourses();
+    _subscribeToQuestionReplies();
   }
 
   // Load current user
@@ -382,14 +387,46 @@ class AppProvider extends ChangeNotifier {
   }
 
   // Create study group
-  Future<bool> createStudyGroup(Map<String, dynamic> groupData) async {
+  Future<StudyGroup?> createStudyGroup(Map<String, dynamic> groupData) async {
     final group = await SupabaseService.createStudyGroup(groupData);
     if (group != null) {
       _studyGroups.insert(0, group);
       notifyListeners();
-      return true;
     }
-    return false;
+    return group;
+  }
+
+  Future<bool> joinStudyGroup(String groupId) async {
+    final success = await SupabaseService.joinStudyGroup(groupId);
+    if (success) {
+      await loadStudyGroups();
+    }
+    return success;
+  }
+
+  Future<bool> leaveStudyGroup(String groupId) async {
+    final success = await SupabaseService.leaveStudyGroup(groupId);
+    if (success) {
+      await loadStudyGroups();
+    }
+    return success;
+  }
+
+  Future<bool> updateStudyGroup(String groupId, Map<String, dynamic> updates) async {
+    final success = await SupabaseService.updateStudyGroup(groupId, updates);
+    if (success) {
+      await loadStudyGroups();
+    }
+    return success;
+  }
+
+  Future<bool> deleteStudyGroup(String groupId) async {
+    final success = await SupabaseService.deleteStudyGroup(groupId);
+    if (success) {
+      _studyGroups.removeWhere((group) => group.id == groupId);
+      notifyListeners();
+    }
+    return success;
   }
 
   // Create event
@@ -472,7 +509,7 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateUser(User user) {
+  void updateUser(app_models.User user) {
     _currentUser = user;
     notifyListeners();
   }
@@ -502,7 +539,31 @@ class AppProvider extends ChangeNotifier {
     _isCoursesLoading = false;
     _classSchedules = [];
     _courses = [];
+    _questionRepliesChannel?.unsubscribe();
+    _questionRepliesChannel = null;
     notifyListeners();
+  }
+
+  void _subscribeToQuestionReplies() {
+    if (_questionRepliesChannel != null) return;
+    _questionRepliesChannel = SupabaseConfig.client
+        .channel('public:question_replies')
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.insert,
+        schema: 'public',
+        table: 'question_replies',
+        callback: (payload) async {
+          await loadQuestions();
+        },
+      )
+      ..subscribe();
+  }
+
+  @override
+  void dispose() {
+    _questionRepliesChannel?.unsubscribe();
+    _questionRepliesChannel = null;
+    super.dispose();
   }
 
   void toggleNotification(int settingId) {

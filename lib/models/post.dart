@@ -140,40 +140,93 @@ class Question {
 
 class StudyGroup {
   final String id;
-  final String course;
   final String name;
+  final String course;
   final int members;
   final String meetTime;
   final String location;
+  final String description;
+  final List<String> memberIds;
+  final bool isJoined;
+  final bool isOwner;
+  final String creatorId;
 
   const StudyGroup({
     required this.id,
-    required this.course,
     required this.name,
+    required this.course,
     required this.members,
     required this.meetTime,
     required this.location,
+    this.description = '',
+    this.memberIds = const [],
+    this.isJoined = false,
+    this.isOwner = false,
+    this.creatorId = '',
   });
 
+  StudyGroup copyWith({
+    String? id,
+    String? name,
+    String? course,
+    int? members,
+    String? meetTime,
+    String? location,
+    String? description,
+    List<String>? memberIds,
+    bool? isJoined,
+    bool? isOwner,
+    String? creatorId,
+  }) {
+    return StudyGroup(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      course: course ?? this.course,
+      members: members ?? this.members,
+      meetTime: meetTime ?? this.meetTime,
+      location: location ?? this.location,
+      description: description ?? this.description,
+      memberIds: memberIds ?? this.memberIds,
+      isJoined: isJoined ?? this.isJoined,
+      isOwner: isOwner ?? this.isOwner,
+      creatorId: creatorId ?? this.creatorId,
+    );
+  }
+
   factory StudyGroup.fromJson(Map<String, dynamic> json) {
+    final memberIds = (json['memberIds'] as List?)
+            ?.map((member) => member.toString())
+            .where((id) => id.isNotEmpty)
+            .toList() ??
+        const [];
     return StudyGroup(
       id: json['id'] ?? '',
-      course: json['course'] ?? '',
       name: json['name'] ?? '',
-      members: json['members'] ?? 0,
-      meetTime: json['meetTime'] ?? '',
+      course: json['course'] ?? '',
+      members: json['members'] ?? memberIds.length,
+      meetTime: json['meetTime'] ?? json['meet_time'] ?? '',
       location: json['location'] ?? '',
+      description: json['description'] ?? '',
+      memberIds: memberIds,
+      isJoined: json['isJoined'] ?? json['is_joined'] ?? false,
+      isOwner: json['isOwner'] ?? json['is_owner'] ?? false,
+      creatorId: json['creatorId'] ?? json['creator_id'] ?? '',
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'course': course,
       'name': name,
+      'course': course,
       'members': members,
       'meetTime': meetTime,
       'location': location,
+      'description': description,
+      'memberIds': memberIds,
+      'isJoined': isJoined,
+      'isOwner': isOwner,
+      'creatorId': creatorId,
     };
   }
 }

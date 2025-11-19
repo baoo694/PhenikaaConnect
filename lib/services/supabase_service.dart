@@ -701,7 +701,7 @@ class SupabaseService {
       final response = await _client
           .from('question_replies')
           .select('''
-            id, content, created_at, is_solution,
+            id, content, created_at, is_solution, user_id,
             users!question_replies_user_id_fkey(name, avatar_url)
           ''')
           .eq('question_id', questionId)
@@ -761,25 +761,41 @@ class SupabaseService {
   // Study group operations
   static Future<List<StudyGroup>> getStudyGroups() async {
     try {
+      final currentUser = _client.auth.currentUser;
       final response = await _client
           .from('study_groups')
           .select('''
             *,
-            users!study_groups_creator_id_fkey(name),
-            study_group_members(user_id)
+            study_group_members (user_id)
           ''')
           .order('created_at', ascending: false);
-      
+
       return response.map<StudyGroup>((json) {
-        final members = json['study_group_members'] as List;
-        
+        final members = (json['study_group_members'] as List?)
+                ?.whereType<Map<String, dynamic>>()
+                .toList() ??
+            [];
+        final memberIds = members
+            .map((member) => (member['user_id'] ?? '').toString())
+            .where((id) => id.isNotEmpty)
+            .toList();
+        final isJoined =
+            currentUser != null && memberIds.contains(currentUser.id);
+        final isOwner =
+            currentUser != null && json['creator_id'] == currentUser.id;
+
         return StudyGroup(
-          id: json['id'],
-          course: json['course'],
-          name: json['name'],
-          members: members.length,
-          meetTime: json['meet_time'] ?? '',
+          id: json['id'] ?? '',
+          name: json['name'] ?? '',
+          course: json['course'] ?? '',
+          members: memberIds.length,
+          meetTime: (json['meet_time'] ?? '').toString(),
           location: json['location'] ?? '',
+          description: json['description'] ?? '',
+          memberIds: memberIds,
+          isJoined: isJoined,
+          isOwner: isOwner,
+          creatorId: (json['creator_id'] ?? '').toString(),
         );
       }).toList();
     } catch (e) {
@@ -788,11 +804,12 @@ class SupabaseService {
     }
   }
 
-  static Future<StudyGroup?> createStudyGroup(Map<String, dynamic> groupData) async {
+  static Future<StudyGroup?> createStudyGroup(
+      Map<String, dynamic> groupData) async {
     try {
       final user = _client.auth.currentUser;
       if (user == null) return null;
-      
+
       final response = await _client
           .from('study_groups')
           .insert({
@@ -801,18 +818,88 @@ class SupabaseService {
           })
           .select()
           .single();
-      
+
+      await _client.from('study_group_members').insert({
+        'group_id': response['id'],
+        'user_id': user.id,
+      });
+
       return StudyGroup(
         id: response['id'],
-        course: response['course'],
-        name: response['name'],
+        name: response['name'] ?? '',
+        course: response['course'] ?? '',
         members: 1,
-        meetTime: response['meet_time'] ?? '',
+        meetTime: (response['meet_time'] ?? '').toString(),
         location: response['location'] ?? '',
+        description: response['description'] ?? '',
+        memberIds: [user.id],
+        isJoined: true,
+        isOwner: true,
+        creatorId: user.id,
       );
     } catch (e) {
       print('Error creating study group: $e');
       return null;
+    }
+  }
+
+  static Future<bool> joinStudyGroup(String groupId) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return false;
+
+      await _client.from('study_group_members').insert({
+        'group_id': groupId,
+        'user_id': user.id,
+      });
+      return true;
+    } on PostgrestException catch (e) {
+      if (e.message.toLowerCase().contains('duplicate')) {
+        return true;
+      }
+      print('Error joining study group: $e');
+      return false;
+    } catch (e) {
+      print('Error joining study group: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> leaveStudyGroup(String groupId) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return false;
+
+      await _client
+          .from('study_group_members')
+          .delete()
+          .eq('group_id', groupId)
+          .eq('user_id', user.id);
+      return true;
+    } catch (e) {
+      print('Error leaving study group: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> updateStudyGroup(
+      String groupId, Map<String, dynamic> updates) async {
+    try {
+      await _client.from('study_groups').update(updates).eq('id', groupId);
+      return true;
+    } catch (e) {
+      print('Error updating study group: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> deleteStudyGroup(String groupId) async {
+    try {
+      await _client.from('study_groups').delete().eq('id', groupId);
+      return true;
+    } catch (e) {
+      print('Error deleting study group: $e');
+      return false;
     }
   }
 
