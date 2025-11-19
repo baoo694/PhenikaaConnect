@@ -137,6 +137,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
 
   Widget _buildAnnouncementCard(Map<String, dynamic> announcement) {
     final announcementId = (announcement['id'] ?? '').toString();
+    final isHighPriority =
+        announcement['important'] == true || announcement['priority'] == 'high';
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       child: GestureDetector(
@@ -151,6 +153,9 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           child: CustomCard(
+            backgroundColor: isHighPriority
+                ? const Color(0xFFFFF5F5)
+                : Theme.of(context).colorScheme.surface,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -167,25 +172,21 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                       ),
                       const SizedBox(width: 8),
                     ],
-                    if (announcement['important'] == true) ...[
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                    ],
                     Expanded(
                       child: Text(
                         announcement['title'] ?? 'Không có tiêu đề',
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                              fontWeight: FontWeight.bold,
+                            ),
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    CustomBadge(
+                      text: isHighPriority ? 'Khẩn cấp' : 'Thông thường',
+                      type: isHighPriority ? BadgeType.error : BadgeType.outline,
+                      size: BadgeSize.small,
+                    ),
+                    const SizedBox(width: 8),
                     CustomBadge(
                       text: announcement['category'] ?? 'Khác',
                       type: BadgeType.outline,
@@ -197,8 +198,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                 Text(
                   announcement['content'] ?? 'Không có nội dung',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
-                  ),
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                      ),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -212,8 +213,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                     Text(
                       announcement['author'] ?? 'Hệ thống',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                      ),
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                          ),
                     ),
                     const Spacer(),
                     Icon(
@@ -225,8 +226,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                     Text(
                       announcement['time'] ?? 'Không xác định',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                      ),
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                          ),
                     ),
                   ],
                 ),

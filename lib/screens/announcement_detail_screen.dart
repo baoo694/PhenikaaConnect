@@ -37,23 +37,16 @@ class AnnouncementDetailScreen extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context) {
+    final isHighPriority =
+        announcement['important'] == true || announcement['priority'] == 'high';
     return CustomCard(
+      backgroundColor:
+          isHighPriority ? const Color(0xFFFFF5F5) : Theme.of(context).colorScheme.surface,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              if (announcement['important'] == true) ...[
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
               Expanded(
                 child: Text(
                   announcement['title'] ?? 'Không có tiêu đề',
@@ -73,12 +66,11 @@ class AnnouncementDetailScreen extends StatelessWidget {
                 size: BadgeSize.small,
               ),
               const SizedBox(width: 8),
-              if (announcement['priority'] == 'high')
-                CustomBadge(
-                  text: 'Quan trọng',
-                  type: BadgeType.primary,
-                  size: BadgeSize.small,
-                ),
+              CustomBadge(
+                text: isHighPriority ? 'Khẩn' : 'Thông thường',
+                type: isHighPriority ? BadgeType.error : BadgeType.outline,
+                size: BadgeSize.small,
+              ),
             ],
           ),
         ],

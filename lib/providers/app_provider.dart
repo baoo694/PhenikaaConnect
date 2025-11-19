@@ -173,6 +173,24 @@ class AppProvider extends ChangeNotifier {
   Future<void> loadAnnouncements() async {
     try {
       _announcements = await SupabaseService.getAnnouncements();
+      _announcements.sort((a, b) {
+        const priorityOrder = {'high': 0, 'normal': 1, 'low': 2};
+        final aPriority = priorityOrder[(a['priority'] ?? '').toString()] ?? 1;
+        final bPriority = priorityOrder[(b['priority'] ?? '').toString()] ?? 1;
+        if (aPriority != bPriority) {
+          return aPriority.compareTo(bPriority);
+        }
+
+        DateTime parseDate(dynamic value) {
+          if (value == null) return DateTime.fromMillisecondsSinceEpoch(0);
+          return DateTime.tryParse(value.toString()) ??
+              DateTime.fromMillisecondsSinceEpoch(0);
+        }
+
+        final aDate = parseDate(a['created_at']);
+        final bDate = parseDate(b['created_at']);
+        return bDate.compareTo(aDate);
+      });
       print('Loaded ${_announcements.length} announcements from Supabase');
     } catch (e) {
       print('Error loading announcements: $e');

@@ -597,9 +597,34 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          // TODO: Implement announcements from Supabase
-          // For now, show placeholder
-          _buildPlaceholderAnnouncement(context),
+          Consumer<AppProvider>(
+            builder: (context, appProvider, child) {
+              final announcements = appProvider.announcements;
+              if (announcements.isEmpty) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      'Chưa có thông báo nào',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withOpacity(0.7),
+                          ),
+                    ),
+                  ),
+                );
+              }
+
+              return Column(
+                children: announcements.take(2).map((ann) {
+                  final announcementData = _mapToAnnouncementCardData(ann);
+                  return _buildAnnouncementItem(context, announcementData);
+                }).toList(),
+              );
+            },
+          ),
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
@@ -613,44 +638,51 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildAnnouncementItem(BuildContext context, dynamic announcement) {
+  Widget _buildAnnouncementItem(BuildContext context, AnnouncementCardData announcement) {
+    final isHighPriority = announcement.priority == AnnouncementPriority.high;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        color: isHighPriority
+            ? const Color(0xFFFFF5F5)
+            : Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+          color: isHighPriority
+              ? const Color(0xFFFECACA)
+              : Theme.of(context).colorScheme.outline.withOpacity(0.2),
         ),
       ),
       child: Row(
         children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: announcement.priority == AnnouncementPriority.high ? Colors.red : Colors.yellow,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  announcement.title,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        announcement.title,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ),
+                    CustomBadge(
+                      text: isHighPriority ? 'Khẩn' : 'Thông báo',
+                      type: isHighPriority ? BadgeType.error : BadgeType.outline,
+                      size: BadgeSize.small,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '2h ago',
+                  announcement.description,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                  ),
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      ),
                 ),
               ],
             ),
@@ -986,49 +1018,27 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPlaceholderAnnouncement(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: const BoxDecoration(
-              color: Colors.red,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Thông báo nghỉ học ngày 25/12',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '2h ago',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return Container();
+  }
+
+  AnnouncementCardData _mapToAnnouncementCardData(Map<String, dynamic> map) {
+    final priorityStr = (map['priority'] ?? 'medium').toString();
+    AnnouncementPriority priority;
+    switch (priorityStr) {
+      case 'high':
+        priority = AnnouncementPriority.high;
+        break;
+      case 'low':
+        priority = AnnouncementPriority.low;
+        break;
+      default:
+        priority = AnnouncementPriority.medium;
+    }
+
+    return AnnouncementCardData(
+      title: map['title']?.toString() ?? '',
+      description: map['content']?.toString() ?? '',
+      priority: priority,
     );
   }
 
@@ -1064,3 +1074,17 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 }
+
+class AnnouncementCardData {
+  final String title;
+  final String description;
+  final AnnouncementPriority priority;
+
+  const AnnouncementCardData({
+    required this.title,
+    required this.description,
+    required this.priority,
+  });
+}
+
+enum AnnouncementPriority { high, medium, low }

@@ -135,14 +135,20 @@ class _ProfileScreenState extends State<ProfileScreen>
     final priority = announcement['priority'] ?? 'normal';
     final createdAt = announcement['created_at'] ?? '';
     
+    final isHighPriority = priority == 'high';
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
+        color: isHighPriority
+            ? const Color(0xFFFFF5F5)
+            : Theme.of(context).colorScheme.surface,
         border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+          color: isHighPriority
+              ? const Color(0xFFFECACA)
+              : Theme.of(context).colorScheme.outline.withOpacity(0.2),
         ),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,13 +160,13 @@ class _ProfileScreenState extends State<ProfileScreen>
                 child: Text(
                   announcement['title'] ?? '',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                        fontWeight: FontWeight.w600,
+                      ),
                 ),
               ),
               CustomBadge(
-                text: priority == 'high' ? 'Quan trọng' : 'Thông thường',
-                type: priority == 'high' ? BadgeType.warning : BadgeType.primary,
+                text: isHighPriority ? 'Khẩn' : 'Thông thường',
+                type: isHighPriority ? BadgeType.error : BadgeType.primary,
                 size: BadgeSize.small,
               ),
             ],
