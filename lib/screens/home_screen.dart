@@ -94,30 +94,26 @@ class _HomeScreenState extends State<HomeScreen> {
           },
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Welcome Section
-            _buildWelcomeSection(context),
-            const SizedBox(height: 24),
-            
-            // Quick Actions
-            _buildQuickActions(context),
-            const SizedBox(height: 24),
-            
-            // Today's Schedule
-            _buildTodaySchedule(context),
-            const SizedBox(height: 24),
-            
-            // Announcements & Events
-            _buildAnnouncementsAndEvents(context),
-            const SizedBox(height: 24),
-            
-            // Recent Activity
-            _buildRecentActivity(context),
-          ],
+      body: RefreshIndicator(
+        onRefresh: () =>
+            context.read<AppProvider>().refreshAllData(),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildWelcomeSection(context),
+              const SizedBox(height: 24),
+              _buildQuickActions(context),
+              const SizedBox(height: 24),
+              _buildTodaySchedule(context),
+              const SizedBox(height: 24),
+              _buildAnnouncementsAndEvents(context),
+              const SizedBox(height: 24),
+              _buildRecentActivity(context),
+            ],
+          ),
         ),
       ),
     );

@@ -19,6 +19,8 @@ class _CampusScreenState extends State<CampusScreen>
   late TabController _tabController;
   String _searchQuery = '';
   String _selectedCategory = 'Tất cả';
+  bool _showJoinedOnly = false; // Filter for joined events
+  bool _showJoinedClubsOnly = false; // Filter for joined clubs
   int _lastProviderSubTabIndex = 0; // Track the last sub tab index from provider
 
   @override
@@ -142,48 +144,52 @@ class _CampusScreenState extends State<CampusScreen>
   }
 
   Widget _buildMapTab() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Bản đồ trường học',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Tìm đường trong khuôn viên Phenikaa',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                ),
-          ),
-          const SizedBox(height: 16),
-          CustomInput(
-            hintText: 'Tìm kiếm địa điểm...',
-            prefixIcon: LucideIcons.search,
-            onChanged: (value) {
-              setState(() {
-                _searchQuery = value;
-              });
-            },
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: ListView(
-              physics: const BouncingScrollPhysics(),
-              children: [
-                _buildMapPlaceholder(),
-                const SizedBox(height: 16),
-                _buildPopularLocations(),
-                const SizedBox(height: 16),
-                _buildLocationsList(),
-              ],
+    return RefreshIndicator(
+      onRefresh: () =>
+          context.read<AppProvider>().loadLocations(),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Bản đồ trường học',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
-          ),
-        ],
+            const SizedBox(height: 4),
+            Text(
+              'Tìm đường trong khuôn viên Phenikaa',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                  ),
+            ),
+            const SizedBox(height: 16),
+            CustomInput(
+              hintText: 'Tìm kiếm địa điểm...',
+              prefixIcon: LucideIcons.search,
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  _buildMapPlaceholder(),
+                  const SizedBox(height: 16),
+                  _buildPopularLocations(),
+                  const SizedBox(height: 16),
+                  _buildLocationsList(),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -448,15 +454,22 @@ class _CampusScreenState extends State<CampusScreen>
                 ),
                 const SizedBox(height: 16),
                 _buildCategoryFilter(),
+                const SizedBox(height: 12),
+                _buildJoinedFilter(),
               ],
             ),
           ),
         ),
         // Scrollable events list
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
-            child: _buildEventsList(),
+          child: RefreshIndicator(
+            onRefresh: () =>
+                context.read<AppProvider>().loadEvents(),
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+              child: _buildEventsList(),
+            ),
           ),
         ),
       ],
@@ -489,6 +502,53 @@ class _CampusScreenState extends State<CampusScreen>
     );
   }
 
+  Widget _buildJoinedFilter() {
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _showJoinedOnly = !_showJoinedOnly;
+        });
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: _showJoinedOnly
+              ? Theme.of(context).colorScheme.primary
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: _showJoinedOnly
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.outline.withOpacity(0.3),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              LucideIcons.checkCircle,
+              size: 16,
+              color: _showJoinedOnly
+                  ? Colors.white
+                  : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Sự kiện đã tham gia',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: _showJoinedOnly
+                    ? Colors.white
+                    : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                fontWeight: _showJoinedOnly ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildEventsList() {
     return Consumer<AppProvider>(
       builder: (context, appProvider, child) {
@@ -501,9 +561,14 @@ class _CampusScreenState extends State<CampusScreen>
           );
         }
         
-        final filteredEvents = _selectedCategory == 'Tất cả'
+        var filteredEvents = _selectedCategory == 'Tất cả'
             ? appProvider.events
             : appProvider.events.where((e) => e.category == _selectedCategory).toList();
+        
+        // Filter by joined status if enabled
+        if (_showJoinedOnly) {
+          filteredEvents = filteredEvents.where((e) => e.isJoined).toList();
+        }
 
         if (filteredEvents.isEmpty) {
           return Padding(
@@ -682,6 +747,38 @@ class _CampusScreenState extends State<CampusScreen>
                       type: BadgeType.outline,
                       size: BadgeSize.small,
                     ),
+                    if (event.isJoined) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.green.shade200,
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              LucideIcons.checkCircle,
+                              size: 12,
+                              color: Colors.green.shade700,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Đã tham gia',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Colors.green.shade700,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -757,51 +854,105 @@ class _CampusScreenState extends State<CampusScreen>
   }
 
   Widget _buildClubsTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CustomCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      LucideIcons.users,
-                      color: Colors.orange,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Câu lạc bộ & Tổ chức sinh viên',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Tham gia CLB và kết nối với sinh viên',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                            ),
-                          ),
-                        ],
+    return RefreshIndicator(
+      onRefresh: () =>
+          context.read<AppProvider>().loadClubs(),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CustomCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        LucideIcons.users,
+                        color: Colors.orange,
+                        size: 24,
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                _buildClubsGrid(),
-              ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Câu lạc bộ & Tổ chức sinh viên',
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Tham gia CLB và kết nối với sinh viên',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _buildJoinedClubsFilter(),
+                  const SizedBox(height: 16),
+                  _buildClubsGrid(),
+                ],
+              ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildJoinedClubsFilter() {
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _showJoinedClubsOnly = !_showJoinedClubsOnly;
+        });
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: _showJoinedClubsOnly
+              ? Theme.of(context).colorScheme.primary
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: _showJoinedClubsOnly
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.outline.withOpacity(0.3),
           ),
-        ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              LucideIcons.checkCircle,
+              size: 16,
+              color: _showJoinedClubsOnly
+                  ? Colors.white
+                  : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'CLB đã tham gia',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: _showJoinedClubsOnly
+                    ? Colors.white
+                    : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                fontWeight: _showJoinedClubsOnly ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -821,8 +972,44 @@ class _CampusScreenState extends State<CampusScreen>
           );
         }
         
+        var filteredClubs = appProvider.clubs;
+        
+        // Filter by joined status if enabled
+        if (_showJoinedClubsOnly) {
+          filteredClubs = filteredClubs.where((c) => c['isJoined'] == true).toList();
+        }
+        
+        if (filteredClubs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  LucideIcons.users,
+                  size: 48,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Không có CLB nào',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Hãy thử tắt bộ lọc',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+        
         return Column(
-          children: appProvider.clubs.map((club) {
+          children: filteredClubs.map((club) {
             return Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: _buildClubCard({
@@ -832,6 +1019,7 @@ class _CampusScreenState extends State<CampusScreen>
                 'members': club['members_count'],
                 'description': club['description'],
                 'active': club['active'],
+                'isJoined': club['isJoined'] ?? false,
               }),
             );
           }).toList(),
@@ -863,6 +1051,38 @@ class _CampusScreenState extends State<CampusScreen>
                   ),
                 ),
               ),
+              if (club['isJoined'] == true) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.green.shade200,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        LucideIcons.checkCircle,
+                        size: 12,
+                        color: Colors.green.shade700,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Đã tham gia',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.green.shade700,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
@@ -931,38 +1151,37 @@ class _CampusScreenState extends State<CampusScreen>
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(
-                child: Consumer<AppProvider>(
-                  builder: (context, appProvider, child) {
-                    return CustomButton(
-                      text: 'Tham gia',
-                      size: ButtonSize.small,
-                      onPressed: () async {
-                        if (club['id'] != null) {
-                          final success = await appProvider.joinClub(club['id']);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  success
-                                      ? 'Đã tham gia CLB thành công!'
-                                      : 'Tham gia thất bại. Bạn có thể đã là thành viên.',
+              if (club['isJoined'] != true) ...[
+                Expanded(
+                  child: Consumer<AppProvider>(
+                    builder: (context, appProvider, child) {
+                      return CustomButton(
+                        text: 'Tham gia',
+                        size: ButtonSize.small,
+                        onPressed: () async {
+                          if (club['id'] != null) {
+                            final success = await appProvider.joinClub(club['id']);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    success
+                                        ? 'Đã tham gia CLB thành công!'
+                                        : 'Tham gia thất bại. Bạn có thể đã là thành viên.',
+                                  ),
+                                  backgroundColor:
+                                      success ? Colors.green : Colors.red,
                                 ),
-                                backgroundColor:
-                                    success ? Colors.green : Colors.red,
-                              ),
-                            );
-                            if (success) {
-                              appProvider.loadClubs();
+                              );
                             }
                           }
-                        }
-                      },
-                    );
-                  },
+                        },
+                      );
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
+                const SizedBox(width: 8),
+              ],
               Expanded(
                 child: CustomButton(
                   text: 'Xem thêm',

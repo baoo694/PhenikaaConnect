@@ -6,6 +6,7 @@ import '../models/post.dart';
 import '../providers/app_provider.dart';
 import '../services/supabase_service.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/question_form_sheet.dart';
 
 class QuestionDetailScreen extends StatefulWidget {
   final Question question;
@@ -18,6 +19,7 @@ class QuestionDetailScreen extends StatefulWidget {
 
 class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
   final TextEditingController _replyController = TextEditingController();
+  late Question _question;
   bool _loadingReplies = true;
   bool _postingReply = false;
   List<Map<String, dynamic>> _replies = [];
@@ -28,10 +30,11 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _isSolved = widget.question.solved;
+    _question = widget.question;
+    _isSolved = _question.solved;
     final currentUserId =
         Provider.of<AppProvider>(context, listen: false).currentUser?.id;
-    _isOwner = currentUserId != null && currentUserId == widget.question.userId;
+    _isOwner = currentUserId != null && currentUserId == _question.userId;
     _loadReplies();
     _subscribeToReplies();
   }
@@ -46,7 +49,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
 
   void _subscribeToReplies() {
     _repliesChannel = Supabase.instance.client
-        .channel('question_replies_${widget.question.id}')
+        .channel('question_replies_${_question.id}')
       ..onPostgresChanges(
         event: PostgresChangeEvent.insert,
         schema: 'public',
@@ -54,7 +57,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
         callback: (payload) async {
           final newRecord = payload.newRecord;
           if (newRecord != null &&
-              newRecord['question_id'] == widget.question.id) {
+              newRecord['question_id'] == _question.id) {
             await _loadReplies();
           }
         },
@@ -63,7 +66,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
   }
 
   Future<void> _loadReplies() async {
-    final data = await SupabaseService.getQuestionReplies(widget.question.id);
+    final data = await SupabaseService.getQuestionReplies(_question.id);
     if (!mounted) return;
     setState(() {
       _replies = data;
@@ -78,7 +81,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
     setState(() => _postingReply = true);
     final success = await context
         .read<AppProvider>()
-        .createQuestionReply(widget.question.id, text);
+        .createQuestionReply(_question.id, text);
 
     if (!mounted) return;
 
@@ -107,7 +110,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
     setState(() => _postingReply = true);
     final success = await context
         .read<AppProvider>()
-        .markQuestionSolution(widget.question.id, replyId.toString());
+        .markQuestionSolution(_question.id, replyId.toString());
 
     if (!mounted) return;
 
@@ -131,11 +134,88 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
     }
   }
 
+  Future<void> _handleEditQuestion() async {
+    await showQuestionFormSheet(context, editingQuestion: _question);
+    if (!mounted) return;
+    _refreshQuestionFromProvider();
+  }
+
+  Future<void> _confirmDeleteQuestion() async {
+    final shouldDelete = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Xóa câu hỏi'),
+            content:
+                const Text('Bạn chắc chắn muốn xóa câu hỏi này khỏi diễn đàn?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Hủy'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Xóa'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!shouldDelete) return;
+
+    final success =
+        await context.read<AppProvider>().deleteQuestion(_question.id);
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã xóa câu hỏi')),
+      );
+      Navigator.of(context).pop();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể xóa câu hỏi'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _refreshQuestionFromProvider() {
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    try {
+      final updated =
+          provider.questions.firstWhere((q) => q.id == _question.id);
+      final currentUserId = provider.currentUser?.id;
+      setState(() {
+        _question = updated;
+        _isSolved = updated.solved;
+        _isOwner =
+            currentUserId != null && currentUserId == updated.userId;
+      });
+    } catch (_) {
+      // Question might have been deleted or not in the cache.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chi tiết câu hỏi'),
+        actions: _isOwner
+            ? [
+                IconButton(
+                  icon: const Icon(LucideIcons.edit),
+                  onPressed: _handleEditQuestion,
+                ),
+                IconButton(
+                  icon: const Icon(LucideIcons.trash2),
+                  onPressed: _confirmDeleteQuestion,
+                ),
+              ]
+            : null,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -165,7 +245,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
           Row(
             children: [
               CustomBadge(
-                text: widget.question.course,
+                text: _question.course,
                 type: BadgeType.outline,
                 size: BadgeSize.small,
               ),
@@ -181,14 +261,14 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            widget.question.title,
+            _question.title,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
           ),
           const SizedBox(height: 8),
           Text(
-            '${widget.question.author} • ${widget.question.time}',
+            '${_question.author} • ${_question.time}',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context)
                       .colorScheme
@@ -224,8 +304,8 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            widget.question.content.isNotEmpty
-                ? widget.question.content
+            _question.content.isNotEmpty
+                ? _question.content
                 : 'Không có mô tả chi tiết.',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   height: 1.6,

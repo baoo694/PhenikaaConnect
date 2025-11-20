@@ -4,9 +4,11 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/question_form_sheet.dart';
 import '../models/post.dart';
 import '../models/course.dart';
 import '../services/group_reminder_service.dart';
+import '../services/supabase_service.dart';
 import 'question_detail_screen.dart';
 
 class AcademicScreen extends StatefulWidget {
@@ -67,36 +69,40 @@ class _AcademicScreenState extends State<AcademicScreen>
   }
 
   Widget _buildScheduleTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CustomCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Thời khóa biểu',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+    return RefreshIndicator(
+      onRefresh: _refreshScheduleData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CustomCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Thời khóa biểu',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Lịch học trong tuần của bạn',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Lịch học trong tuần của bạn',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                _buildDaySelector(),
-                const SizedBox(height: 16),
-                _buildScheduleList(),
-              ],
+                  const SizedBox(height: 16),
+                  _buildDaySelector(),
+                  const SizedBox(height: 16),
+                  _buildScheduleList(),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -306,39 +312,67 @@ class _AcademicScreenState extends State<AcademicScreen>
   }
 
   Widget _buildCoursesTab() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
+    return Container(
+      color: Theme.of(context).cardColor,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Môn học của tôi',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
+          // Fixed header section
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: CustomCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Môn học của tôi',
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Quản lý và truy cập tài liệu môn học',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  CustomInput(
+                    hintText: 'Tìm kiếm môn học...',
+                    prefixIcon: LucideIcons.search,
+                    onChanged: (value) {
+                      setState(() {
+                        _courseSearchQuery = value;
+                      });
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Quản lý và truy cập tài liệu môn học',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withOpacity(0.7),
-                ),
+          // Scrollable courses list
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _refreshCoursesData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+                child: _buildCoursesGrid(),
+              ),
+            ),
           ),
-          const SizedBox(height: 16),
-          CustomInput(
-            hintText: 'Tìm kiếm môn học...',
-            prefixIcon: LucideIcons.search,
-            onChanged: (value) {
-              setState(() {
-                _courseSearchQuery = value;
-              });
-            },
-          ),
-          const SizedBox(height: 16),
-          Expanded(child: _buildCoursesGrid()),
         ],
       ),
     );
@@ -411,7 +445,8 @@ class _AcademicScreenState extends State<AcademicScreen>
 
         return ListView.separated(
           padding: EdgeInsets.zero,
-          physics: const BouncingScrollPhysics(),
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
           itemCount: filteredCourses.length,
           separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
@@ -550,54 +585,76 @@ class _AcademicScreenState extends State<AcademicScreen>
   }
 
   Widget _buildQnATab() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Diễn đàn hỏi đáp',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
+    return Column(
+      children: [
+        // Fixed header section
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: CustomCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Diễn đàn hỏi đáp',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Đặt câu hỏi và hỗ trợ bạn bè trong lớp học.',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                ),
+                          ),
+                        ],
+                      ),
                     ),
-              ),
-              CustomButton(
-                text: 'Đặt câu hỏi',
-                size: ButtonSize.small,
-                icon: LucideIcons.plus,
-                onPressed: () => _showAskQuestionSheet(context),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Đặt câu hỏi và hỗ trợ bạn bè trong lớp học.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withOpacity(0.6),
+                    const SizedBox(width: 8),
+                    CustomButton(
+                      text: 'Đặt câu hỏi',
+                      type: ButtonType.outline,
+                      size: ButtonSize.small,
+                      icon: LucideIcons.plus,
+                      onPressed: () => _showAskQuestionSheet(context),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 10),
+                CustomInput(
+                  hintText: 'Tìm kiếm câu hỏi...',
+                  prefixIcon: LucideIcons.search,
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value;
+                    });
+                  },
+                ),
+                const SizedBox(height: 10),
+                _buildQuestionFilters(context),
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
-          CustomInput(
-            hintText: 'Tìm kiếm câu hỏi...',
-            prefixIcon: LucideIcons.search,
-            onChanged: (value) {
-              setState(() {
-                _searchQuery = value;
-              });
-            },
+        ),
+        // Scrollable questions list
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _refreshQuestionsData,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+              child: _buildQuestionsList(),
+            ),
           ),
-          const SizedBox(height: 12),
-          _buildQuestionFilters(context),
-          const SizedBox(height: 12),
-          Expanded(child: _buildQuestionsList()),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -656,9 +713,10 @@ class _AcademicScreenState extends State<AcademicScreen>
 
         return ListView.separated(
           padding: EdgeInsets.zero,
-          physics: const BouncingScrollPhysics(),
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
           itemCount: filteredQuestions.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
           itemBuilder: (context, index) {
             return _buildQuestionCard(filteredQuestions[index]);
           },
@@ -668,13 +726,18 @@ class _AcademicScreenState extends State<AcademicScreen>
   }
 
   Widget _buildQuestionCard(Question question) {
+    final currentUserId =
+        Provider.of<AppProvider>(context, listen: false).currentUser?.id;
+    final isOwner = question.userId != null && question.userId == currentUserId;
+
     return CustomCard(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: EdgeInsets.zero,
       onTap: () => _openQuestionDetail(question),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CustomAvatar(
-            initials: question.author[0],
+            initials: question.author.isNotEmpty ? question.author[0] : 'Q',
             radius: 20,
           ),
           const SizedBox(width: 12),
@@ -757,6 +820,29 @@ class _AcademicScreenState extends State<AcademicScreen>
               ],
             ),
           ),
+          if (isOwner) ...[
+            const SizedBox(width: 4),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, size: 20),
+              onSelected: (value) {
+                if (value == 'edit') {
+                  _showEditQuestionSheet(question);
+                } else if (value == 'delete') {
+                  _confirmDeleteQuestion(question);
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: 'edit',
+                  child: Text('Chỉnh sửa'),
+                ),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Text('Xóa câu hỏi'),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -791,148 +877,11 @@ class _AcademicScreenState extends State<AcademicScreen>
   }
 
   void _showAskQuestionSheet(BuildContext context) {
-    final titleController = TextEditingController();
-    final descriptionController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    bool isSubmitting = false;
-    final appProvider = Provider.of<AppProvider>(context, listen: false);
-    final courseOptions = appProvider.courses;
-    String? selectedCourse =
-        courseOptions.isNotEmpty ? courseOptions.first.name : null;
+    showQuestionFormSheet(context);
+  }
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          ),
-          child: StatefulBuilder(
-            builder: (context, modalSetState) {
-              Future<void> submit() async {
-                if (!formKey.currentState!.validate()) return;
-                modalSetState(() => isSubmitting = true);
-
-                final success = await Provider.of<AppProvider>(context, listen: false)
-                    .createQuestion({
-                  'title': titleController.text.trim(),
-                  'course': selectedCourse,
-                  'content': descriptionController.text.trim(),
-                  'solved': false,
-                });
-
-                modalSetState(() => isSubmitting = false);
-
-                if (success && context.mounted) {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Đăng câu hỏi thành công')),
-                  );
-                } else if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Không thể đăng câu hỏi'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
-
-              return Padding(
-                padding: const EdgeInsets.all(24),
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'Đặt câu hỏi mới',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
-                          const Spacer(),
-                          IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: () => Navigator.of(context).pop(),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      CustomInput(
-                        labelText: 'Tiêu đề câu hỏi',
-                        controller: titleController,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Vui lòng nhập tiêu đề';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        value: selectedCourse,
-                        items: courseOptions
-                            .map((course) => DropdownMenuItem<String>(
-                                  value: course.name,
-                                  child: Text(course.name),
-                                ))
-                            .toList(),
-                        onChanged: (value) {
-                          modalSetState(() {
-                            selectedCourse = value;
-                          });
-                        },
-                        decoration: const InputDecoration(
-                          labelText: 'Chủ đề / Môn học',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Vui lòng chọn môn học';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      CustomInput(
-                        labelText: 'Mô tả chi tiết',
-                        controller: descriptionController,
-                        maxLines: 5,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Vui lòng mô tả vấn đề';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        child: CustomButton(
-                          text: 'Đăng câu hỏi',
-                          icon: LucideIcons.send,
-                          onPressed: isSubmitting ? null : submit,
-                          isLoading: isSubmitting,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        );
-      },
-    );
+  void _showEditQuestionSheet(Question question) {
+    showQuestionFormSheet(context, editingQuestion: question);
   }
 
   void _openQuestionDetail(Question question) {
@@ -943,11 +892,51 @@ class _AcademicScreenState extends State<AcademicScreen>
     );
   }
 
+  void _confirmDeleteQuestion(Question question) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Xóa câu hỏi'),
+          content: const Text('Bạn có chắc chắn muốn xóa câu hỏi này không?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Hủy'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(dialogContext).pop();
+                final success = await Provider.of<AppProvider>(context,
+                        listen: false)
+                    .deleteQuestion(question.id);
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      success
+                          ? 'Đã xóa câu hỏi'
+                          : 'Không thể xóa câu hỏi',
+                    ),
+                    backgroundColor: success ? null : Colors.red,
+                  ),
+                );
+              },
+              child: const Text('Xóa'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showCreateGroupSheet(BuildContext context, {StudyGroup? editingGroup}) {
     final nameController =
         TextEditingController(text: editingGroup?.name ?? '');
     final descriptionController =
         TextEditingController(text: editingGroup?.description ?? '');
+    final maxMembersController =
+        TextEditingController(text: editingGroup?.maxMembers.toString() ?? '10');
     final formKey = GlobalKey<FormState>();
     bool isSubmitting = false;
     String? selectedCourse = editingGroup?.course;
@@ -1010,6 +999,17 @@ class _AcademicScreenState extends State<AcademicScreen>
                 }
                 modalSetState(() => isSubmitting = true);
 
+                final maxMembers = int.tryParse(maxMembersController.text.trim()) ?? 10;
+                if (maxMembers < 2 || maxMembers > 50) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Số lượng thành viên tối đa phải từ 2-50 người'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
                 final payload = {
                   'name': nameController.text.trim(),
                   'course': selectedCourse,
@@ -1017,6 +1017,7 @@ class _AcademicScreenState extends State<AcademicScreen>
                       DateFormat('dd/MM/yyyy HH:mm').format(effectiveDateTime),
                   'location': selectedLocation,
                   'description': descriptionController.text.trim(),
+                  'max_members': maxMembers,
                 };
 
                 final provider =
@@ -1197,6 +1198,23 @@ class _AcademicScreenState extends State<AcademicScreen>
                           controller: descriptionController,
                           maxLines: 3,
                         ),
+                        const SizedBox(height: 12),
+                        CustomInput(
+                          labelText: 'Số lượng thành viên tối đa',
+                          controller: maxMembersController,
+                          keyboardType: TextInputType.number,
+                          hintText: '10',
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Vui lòng nhập số lượng thành viên';
+                            }
+                            final num = int.tryParse(value.trim());
+                            if (num == null || num < 2 || num > 50) {
+                              return 'Số lượng phải từ 2-50 người';
+                            }
+                            return null;
+                          },
+                        ),
                         const SizedBox(height: 20),
                         SizedBox(
                           width: double.infinity,
@@ -1220,48 +1238,63 @@ class _AcademicScreenState extends State<AcademicScreen>
   }
 
   Widget _buildGroupsTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+    return Container(
+      color: Theme.of(context).cardColor,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CustomCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Nhóm học tập',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+          // Fixed header section
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: CustomCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Nhóm học tập',
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Tham gia hoặc tạo nhóm học tập',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Tham gia hoặc tạo nhóm học tập',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                          ),
-                        ),
-                      ],
-                    ),
-                    CustomButton(
-                      text: 'Tạo nhóm',
-                      type: ButtonType.outline,
-                      size: ButtonSize.small,
-                      icon: LucideIcons.plus,
-                      onPressed: () => _showCreateGroupSheet(context),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _buildGroupsGrid(),
-              ],
+                      ),
+                      const SizedBox(width: 8),
+                      CustomButton(
+                        text: 'Tạo nhóm',
+                        type: ButtonType.outline,
+                        size: ButtonSize.small,
+                        icon: LucideIcons.plus,
+                        onPressed: () => _showCreateGroupSheet(context),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Scrollable groups list
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _refreshGroupsData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+                child: _buildGroupsGrid(),
+              ),
             ),
           ),
         ],
@@ -1338,10 +1371,15 @@ class _AcademicScreenState extends State<AcademicScreen>
                   ],
                 ),
               ),
-              CustomBadge(
-                text: '${group.members} thành viên',
-                type: BadgeType.outline,
-                size: BadgeSize.small,
+              GestureDetector(
+                onTap: () => _showGroupMembers(group),
+                child: CustomBadge(
+                  text: '${group.members}/${group.maxMembers} thành viên',
+                  type: group.members >= group.maxMembers 
+                      ? BadgeType.error 
+                      : BadgeType.outline,
+                  size: BadgeSize.small,
+                ),
               ),
             ],
           ),
@@ -1452,6 +1490,17 @@ class _AcademicScreenState extends State<AcademicScreen>
   }
 
   Future<void> _handleJoinGroup(StudyGroup group) async {
+    // Check if group is full
+    if (group.members >= group.maxMembers) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nhóm đã đầy, không thể tham gia'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     final success = await appProvider.joinStudyGroup(group.id);
     if (!mounted) return;
@@ -1525,6 +1574,140 @@ class _AcademicScreenState extends State<AcademicScreen>
               child: const Text('Xóa'),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  Future<void> _refreshScheduleData() {
+    return context.read<AppProvider>().loadClassSchedule();
+  }
+
+  Future<void> _refreshCoursesData() {
+    return context.read<AppProvider>().loadCourses();
+  }
+
+  Future<void> _refreshQuestionsData() {
+    return context.read<AppProvider>().loadQuestions();
+  }
+
+  Future<void> _refreshGroupsData() {
+    return context.read<AppProvider>().loadStudyGroups();
+  }
+
+  void _showGroupMembers(StudyGroup group) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) {
+            return FutureBuilder<List<Map<String, dynamic>>>(
+              future: SupabaseService.getGroupMembers(group.id),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final members = snapshot.data ?? [];
+                final appProvider = Provider.of<AppProvider>(context, listen: false);
+                final creatorId = group.creatorId;
+
+                return Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'Thành viên nhóm',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${members.length}/${group.maxMembers} thành viên',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                            ),
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: members.isEmpty
+                            ? const Center(
+                                child: Text('Chưa có thành viên nào'),
+                              )
+                            : ListView.separated(
+                                controller: scrollController,
+                                itemCount: members.length,
+                                separatorBuilder: (_, __) => const Divider(),
+                                itemBuilder: (context, index) {
+                                  final member = members[index];
+                                  final isCreator = member['user_id'] == creatorId;
+                                  return ListTile(
+                                    leading: CustomAvatar(
+                                      initials: (member['name'] as String)[0],
+                                      radius: 20,
+                                    ),
+                                    title: Row(
+                                      children: [
+                                        Text(
+                                          member['name'] ?? 'Unknown',
+                                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                        if (isCreator) ...[
+                                          const SizedBox(width: 8),
+                                          const CustomBadge(
+                                            text: 'Trưởng nhóm',
+                                            type: BadgeType.primary,
+                                            size: BadgeSize.small,
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    subtitle: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        if (member['major'] != null && (member['major'] as String).isNotEmpty)
+                                          Text(
+                                            '${member['major']} • ${member['year']}',
+                                            style: Theme.of(context).textTheme.bodySmall,
+                                          ),
+                                        if (member['student_id'] != null && (member['student_id'] as String).isNotEmpty)
+                                          Text(
+                                            'MSSV: ${member['student_id']}',
+                                            style: Theme.of(context).textTheme.bodySmall,
+                                          ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
         );
       },
     );

@@ -124,12 +124,6 @@ class PostDetailScreen extends StatelessWidget {
             label: 'Bình luận',
             value: '${post.comments}',
           ),
-          _buildStatItem(
-            context,
-            icon: LucideIcons.share2,
-            label: 'Chia sẻ',
-            value: '${post.shares}',
-          ),
         ],
       ),
     );

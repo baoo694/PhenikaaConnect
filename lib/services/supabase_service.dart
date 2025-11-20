@@ -197,6 +197,7 @@ class SupabaseService {
           comments: json['comments_count'] ?? 0,
           shares: json['shares_count'] ?? 0,
           liked: isLiked,
+          userId: json['user_id'],
         );
       }).toList();
     } catch (e) {
@@ -267,6 +268,7 @@ class SupabaseService {
         comments: 0,
         shares: 0,
         liked: false,
+        userId: response['user_id'],
       );
     } catch (e) {
       print('Error creating post: $e');
@@ -317,8 +319,165 @@ class SupabaseService {
     }
   }
 
+  static Future<Map<String, dynamic>?> updatePost(String postId, String content, {String? imageBase64, bool removeImage = false}) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return null;
+
+      // Check if user owns the post
+      final post = await _client
+          .from('posts')
+          .select('user_id, image_url')
+          .eq('id', postId)
+          .single();
+
+      if (post['user_id'] != user.id) {
+        return null; // Not the owner
+      }
+
+      String? imageUrl;
+      // Upload new image if provided
+      if (imageBase64 != null && imageBase64.isNotEmpty) {
+        try {
+          // Delete old image if exists
+          if (post['image_url'] != null && post['image_url'].toString().isNotEmpty) {
+            try {
+              final oldImageUrl = post['image_url'].toString();
+              final uri = Uri.parse(oldImageUrl);
+              final pathParts = uri.pathSegments;
+              if (pathParts.length >= 3) {
+                final bucket = pathParts[pathParts.length - 3];
+                final filePath = pathParts.sublist(pathParts.length - 2).join('/');
+                await _client.storage.from(bucket).remove([filePath]);
+              }
+            } catch (e) {
+              print('Error deleting old image: $e');
+            }
+          }
+
+          final cleaned = imageBase64.contains(',')
+              ? imageBase64.split(',').last
+              : imageBase64;
+          final bytes = base64Decode(cleaned);
+          final uuid = const Uuid().v4();
+          final filePath = '${user.id}/$uuid.png';
+          const bucket = 'post_images';
+          
+          await _client.storage
+              .from(bucket)
+              .uploadBinary(
+                filePath,
+                bytes,
+                fileOptions: const FileOptions(
+                  contentType: 'image/png',
+                  upsert: false,
+                ),
+              );
+          final publicUrl = _client.storage.from(bucket).getPublicUrl(filePath);
+          imageUrl = publicUrl;
+        } catch (e) {
+          print('Image upload failed: $e');
+        }
+      }
+
+      // Update post
+      final updateData = <String, dynamic>{
+        'content': content,
+      };
+      String? finalImageUrl;
+      if (removeImage) {
+        // Delete image from storage if exists
+        if (post['image_url'] != null && post['image_url'].toString().isNotEmpty) {
+          try {
+            final oldImageUrl = post['image_url'].toString();
+            final uri = Uri.parse(oldImageUrl);
+            final pathParts = uri.pathSegments;
+            if (pathParts.length >= 3) {
+              final bucket = pathParts[pathParts.length - 3];
+              final filePath = pathParts.sublist(pathParts.length - 2).join('/');
+              await _client.storage.from(bucket).remove([filePath]);
+            }
+          } catch (e) {
+            print('Error deleting image: $e');
+          }
+        }
+        updateData['image_url'] = null;
+        finalImageUrl = null;
+      } else if (imageUrl != null && imageUrl.isNotEmpty) {
+        updateData['image_url'] = imageUrl;
+        finalImageUrl = imageUrl;
+      } else {
+        // Image unchanged, keep existing URL
+        finalImageUrl = post['image_url'];
+      }
+
+      await _client
+          .from('posts')
+          .update(updateData)
+          .eq('id', postId)
+          .eq('user_id', user.id);
+
+      return {
+        'success': true,
+        'content': content,
+        'imageUrl': finalImageUrl,
+      };
+    } catch (e) {
+      print('Error updating post: $e');
+      return null;
+    }
+  }
+
+  static Future<bool> deletePost(String postId) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return false;
+
+      // Check if user owns the post
+      final post = await _client
+          .from('posts')
+          .select('user_id, image_url')
+          .eq('id', postId)
+          .single();
+
+      if (post['user_id'] != user.id) {
+        return false; // Not the owner
+      }
+
+      // Delete image from storage if exists
+      if (post['image_url'] != null && post['image_url'].toString().isNotEmpty) {
+        try {
+          final imageUrl = post['image_url'].toString();
+          // Extract file path from URL
+          final uri = Uri.parse(imageUrl);
+          final pathParts = uri.pathSegments;
+          if (pathParts.length >= 3) {
+            final bucket = pathParts[pathParts.length - 3];
+            final filePath = pathParts.sublist(pathParts.length - 2).join('/');
+            await _client.storage.from(bucket).remove([filePath]);
+          }
+        } catch (e) {
+          print('Error deleting image: $e');
+          // Continue with post deletion even if image deletion fails
+        }
+      }
+
+      // Delete post (cascade will delete likes and comments)
+      await _client
+          .from('posts')
+          .delete()
+          .eq('id', postId)
+          .eq('user_id', user.id);
+
+      return true;
+    } catch (e) {
+      print('Error deleting post: $e');
+      return false;
+    }
+  }
+
   // Comment operations
-  static Future<bool> createComment(String postId, String content) async {
+  static Future<bool> createComment(String postId, String content, {String? parentId}) async {
     try {
       final user = _client.auth.currentUser;
       if (user == null) return false;
@@ -329,6 +488,7 @@ class SupabaseService {
             'post_id': postId,
             'user_id': user.id,
             'content': content,
+            if (parentId != null) 'parent_id': parentId,
           });
       return true;
     } catch (e) {
@@ -342,12 +502,36 @@ class SupabaseService {
       final response = await _client
           .from('comments')
           .select('''
-            id, content, created_at,
+            id, content, created_at, parent_id,
             users:users!comments_user_id_fkey(name, avatar_url)
           ''')
           .eq('post_id', postId)
           .order('created_at', ascending: true);
-      return response;
+      
+      // Separate top-level comments and replies
+      final topLevelComments = <Map<String, dynamic>>[];
+      final repliesMap = <String, List<Map<String, dynamic>>>{};
+      
+      for (var comment in response) {
+        final parentId = comment['parent_id'];
+        if (parentId == null) {
+          topLevelComments.add(comment);
+        } else {
+          final parentIdStr = parentId.toString();
+          if (!repliesMap.containsKey(parentIdStr)) {
+            repliesMap[parentIdStr] = [];
+          }
+          repliesMap[parentIdStr]!.add(comment);
+        }
+      }
+      
+      // Attach replies to their parent comments
+      for (var comment in topLevelComments) {
+        final commentId = comment['id'].toString();
+        comment['replies'] = repliesMap[commentId] ?? [];
+      }
+      
+      return topLevelComments;
     } catch (e) {
       print('Error getting comments: $e');
       return [];
@@ -358,13 +542,31 @@ class SupabaseService {
   static Future<List<Map<String, dynamic>>> getClubs() async {
     try {
       print('Fetching clubs from Supabase...');
+      final user = _client.auth.currentUser;
+      final userId = user?.id;
+      
       final response = await _client
           .from('clubs')
-          .select('*')
+          .select('''
+            *,
+            club_members(user_id)
+          ''')
           .order('created_at', ascending: false);
       
       print('Raw clubs response from Supabase: $response');
-      return response;
+      
+      // Add isJoined field to each club
+      return response.map<Map<String, dynamic>>((club) {
+        final members = club['club_members'] as List? ?? [];
+        final isJoined = userId != null && members.any((m) => m['user_id'] == userId);
+        final membersCount = members.length;
+        
+        return {
+          ...club,
+          'isJoined': isJoined,
+          'members_count': membersCount,
+        };
+      }).toList();
     } catch (e) {
       print('Error getting clubs: $e');
       return [];
@@ -471,6 +673,9 @@ class SupabaseService {
   static Future<List<Event>> getEvents() async {
     try {
       print('Fetching events from Supabase...');
+      final user = _client.auth.currentUser;
+      final userId = user?.id;
+      
       final response = await _client
           .from('events')
           .select('''
@@ -485,6 +690,7 @@ class SupabaseService {
       return response.map<Event>((json) {
         final organizer = json['users'];
         final attendees = json['event_attendees'] as List;
+        final isJoined = userId != null && attendees.any((a) => a['user_id'] == userId);
         
         return Event(
           id: json['id'],
@@ -496,6 +702,7 @@ class SupabaseService {
           attendees: attendees.length,
           category: json['category'],
           image: json['image_url'] ?? '',
+          isJoined: isJoined,
         );
       }).toList();
     } catch (e) {
@@ -696,6 +903,50 @@ class SupabaseService {
     }
   }
 
+  static Future<bool> updateQuestion(
+      String questionId, Map<String, dynamic> updates) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return false;
+
+      final response = await _client
+          .from('questions')
+          .update({
+            ...updates,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', questionId)
+          .eq('user_id', user.id)
+          .select()
+          .maybeSingle();
+
+      return response != null;
+    } catch (e) {
+      print('Error updating question: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> deleteQuestion(String questionId) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return false;
+
+      final response = await _client
+          .from('questions')
+          .delete()
+          .eq('id', questionId)
+          .eq('user_id', user.id)
+          .select()
+          .maybeSingle();
+
+      return response != null;
+    } catch (e) {
+      print('Error deleting question: $e');
+      return false;
+    }
+  }
+
   static Future<List<Map<String, dynamic>>> getQuestionReplies(String questionId) async {
     try {
       final response = await _client
@@ -789,6 +1040,7 @@ class SupabaseService {
           name: json['name'] ?? '',
           course: json['course'] ?? '',
           members: memberIds.length,
+          maxMembers: json['max_members'] ?? 10,
           meetTime: (json['meet_time'] ?? '').toString(),
           location: json['location'] ?? '',
           description: json['description'] ?? '',
@@ -829,6 +1081,7 @@ class SupabaseService {
         name: response['name'] ?? '',
         course: response['course'] ?? '',
         members: 1,
+        maxMembers: response['max_members'] ?? 10,
         meetTime: (response['meet_time'] ?? '').toString(),
         location: response['location'] ?? '',
         description: response['description'] ?? '',
@@ -900,6 +1153,40 @@ class SupabaseService {
     } catch (e) {
       print('Error deleting study group: $e');
       return false;
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getGroupMembers(String groupId) async {
+    try {
+      final response = await _client
+          .from('study_group_members')
+          .select('''
+            user_id,
+            joined_at,
+            users!study_group_members_user_id_fkey(
+              name,
+              major,
+              year,
+              student_id
+            )
+          ''')
+          .eq('group_id', groupId)
+          .order('joined_at', ascending: true);
+
+      return response.map<Map<String, dynamic>>((member) {
+        final user = member['users'];
+        return {
+          'user_id': member['user_id'],
+          'joined_at': member['joined_at'],
+          'name': user?['name'] ?? 'Unknown',
+          'major': user?['major'] ?? '',
+          'year': user?['year'] ?? '',
+          'student_id': user?['student_id'] ?? '',
+        };
+      }).toList();
+    } catch (e) {
+      print('Error getting group members: $e');
+      return [];
     }
   }
 

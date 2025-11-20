@@ -59,18 +59,23 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _buildUtilitiesTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _buildAnnouncementsCard(),
-          const SizedBox(height: 16),
-          _buildCarpoolCard(),
-          const SizedBox(height: 16),
-          _buildLostFoundCard(),
-          const SizedBox(height: 16),
-          _buildFeedbackCard(),
-        ],
+    return RefreshIndicator(
+      onRefresh: () =>
+          context.read<AppProvider>().refreshAllData(),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            _buildAnnouncementsCard(),
+            const SizedBox(height: 16),
+            _buildCarpoolCard(),
+            const SizedBox(height: 16),
+            _buildLostFoundCard(),
+            const SizedBox(height: 16),
+            _buildFeedbackCard(),
+          ],
+        ),
       ),
     );
   }
@@ -361,18 +366,23 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _buildSettingsTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _buildNotificationSettingsCard(),
-          const SizedBox(height: 16),
-          _buildPrivacySecurityCard(),
-          const SizedBox(height: 16),
-          _buildHelpSupportCard(),
-          const SizedBox(height: 16),
-          _buildLogoutButton(),
-        ],
+    return RefreshIndicator(
+      onRefresh: () =>
+          context.read<AppProvider>().refreshAllData(),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            _buildNotificationSettingsCard(),
+            const SizedBox(height: 16),
+            _buildPrivacySecurityCard(),
+            const SizedBox(height: 16),
+            _buildHelpSupportCard(),
+            const SizedBox(height: 16),
+            _buildLogoutButton(),
+          ],
+        ),
       ),
     );
   }
@@ -591,18 +601,23 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _buildInfoTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _buildProfileHeader(),
-          const SizedBox(height: 16),
-          _buildContactInfoCard(),
-          const SizedBox(height: 16),
-          _buildAcademicStatsCard(),
-          const SizedBox(height: 16),
-          _buildAboutAppCard(),
-        ],
+    return RefreshIndicator(
+      onRefresh: () =>
+          context.read<AppProvider>().refreshAllData(),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            _buildProfileHeader(),
+            const SizedBox(height: 16),
+            _buildContactInfoCard(),
+            const SizedBox(height: 16),
+            _buildAcademicStatsCard(),
+            const SizedBox(height: 16),
+            _buildAboutAppCard(),
+          ],
+        ),
       ),
     );
   }

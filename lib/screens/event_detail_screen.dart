@@ -5,13 +5,26 @@ import '../models/event.dart';
 import '../providers/app_provider.dart';
 import '../widgets/common_widgets.dart';
 
-class EventDetailScreen extends StatelessWidget {
+class EventDetailScreen extends StatefulWidget {
   final Event event;
 
   const EventDetailScreen({
     super.key,
     required this.event,
   });
+
+  @override
+  State<EventDetailScreen> createState() => _EventDetailScreenState();
+}
+
+class _EventDetailScreenState extends State<EventDetailScreen> {
+  late Event _currentEvent;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentEvent = widget.event;
+  }
 
   Widget _buildEventImagePlaceholder(BuildContext context) {
     // Map categories to gradient colors and icons
@@ -38,7 +51,7 @@ class EventDetailScreen extends StatelessWidget {
       },
     };
 
-    final config = categoryConfig[event.category] ??
+    final config = categoryConfig[_currentEvent.category] ??
         {
           'gradient': [Color(0xFF6366F1), Color(0xFF4F46E5)],
           'icon': LucideIcons.calendar,
@@ -64,7 +77,7 @@ class EventDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              event.category,
+              _currentEvent.category,
               style: TextStyle(
                 color: Colors.white.withOpacity(0.9),
                 fontSize: 24,
@@ -102,9 +115,9 @@ class EventDetailScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.grey[300],
               ),
-              child: event.image.isNotEmpty
+              child: _currentEvent.image.isNotEmpty
                   ? Image.network(
-                      event.image,
+                      _currentEvent.image,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
                         return _buildEventImagePlaceholder(context);
@@ -123,13 +136,13 @@ class EventDetailScreen extends StatelessWidget {
                   Row(
                     children: [
                       CustomBadge(
-                        text: event.category,
+                        text: _currentEvent.category,
                         type: BadgeType.primary,
                         size: BadgeSize.small,
                       ),
                       const SizedBox(width: 8),
                       CustomBadge(
-                        text: '${event.attendees} người tham gia',
+                        text: '${_currentEvent.attendees} người tham gia',
                         type: BadgeType.outline,
                         size: BadgeSize.small,
                       ),
@@ -140,7 +153,7 @@ class EventDetailScreen extends StatelessWidget {
                   
                   // Title
                   Text(
-                    event.title,
+                    _currentEvent.title,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -158,7 +171,7 @@ class EventDetailScreen extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Tổ chức bởi ${event.organizer}',
+                        'Tổ chức bởi ${_currentEvent.organizer}',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                         ),
@@ -189,7 +202,7 @@ class EventDetailScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '${event.date} • ${event.time}',
+                              '${_currentEvent.date} • ${_currentEvent.time}',
                               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                                 fontWeight: FontWeight.w600,
                               ),
@@ -223,7 +236,7 @@ class EventDetailScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              event.location,
+                              _currentEvent.location,
                               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                                 fontWeight: FontWeight.w600,
                               ),
@@ -237,16 +250,37 @@ class EventDetailScreen extends StatelessWidget {
                   const SizedBox(height: 32),
                   
                   // Register Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: Consumer<AppProvider>(
-                      builder: (context, appProvider, child) {
-                        return CustomButton(
+                  Consumer<AppProvider>(
+                    builder: (context, appProvider, child) {
+                      // Get the latest event state from provider
+                      final currentEvent = appProvider.events.firstWhere(
+                        (e) => e.id == _currentEvent.id,
+                        orElse: () => _currentEvent,
+                      );
+                      
+                      // Update local state if provider has newer data
+                      if (currentEvent.attendees != _currentEvent.attendees ||
+                          currentEvent.isJoined != _currentEvent.isJoined) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          setState(() {
+                            _currentEvent = currentEvent;
+                          });
+                        });
+                      }
+                      
+                      // Hide button if already joined
+                      if (_currentEvent.isJoined) {
+                        return const SizedBox.shrink();
+                      }
+                      
+                      return SizedBox(
+                        width: double.infinity,
+                        child: CustomButton(
                           text: 'Đăng ký tham gia',
                           icon: LucideIcons.users,
                           size: ButtonSize.large,
                           onPressed: () async {
-                            final success = await appProvider.joinEvent(event.id);
+                            final success = await appProvider.joinEvent(_currentEvent.id);
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
@@ -259,14 +293,20 @@ class EventDetailScreen extends StatelessWidget {
                                       success ? Colors.green : Colors.red,
                                 ),
                               );
+                              // Update local state immediately
                               if (success) {
-                                appProvider.loadEvents();
+                                setState(() {
+                                  _currentEvent = _currentEvent.copyWith(
+                                    attendees: _currentEvent.attendees + 1,
+                                    isJoined: true,
+                                  );
+                                });
                               }
                             }
                           },
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),

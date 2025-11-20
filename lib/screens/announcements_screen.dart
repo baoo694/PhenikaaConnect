@@ -24,15 +24,20 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildCategoryFilter(),
-            const SizedBox(height: 16),
-            _buildAnnouncementsList(),
-          ],
+      body: RefreshIndicator(
+        onRefresh: () =>
+            context.read<AppProvider>().loadAnnouncements(),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildCategoryFilter(),
+              const SizedBox(height: 16),
+              _buildAnnouncementsList(),
+            ],
+          ),
         ),
       ),
     );

@@ -10,6 +10,7 @@ class Post {
   final int comments;
   final int shares;
   final bool liked;
+  final String? userId;
 
   const Post({
     required this.id,
@@ -23,6 +24,7 @@ class Post {
     required this.comments,
     required this.shares,
     required this.liked,
+    this.userId,
   });
 
   factory Post.fromJson(Map<String, dynamic> json) {
@@ -38,6 +40,7 @@ class Post {
       comments: json['comments'] ?? 0,
       shares: json['shares'] ?? 0,
       liked: json['liked'] ?? false,
+      userId: json['user_id'],
     );
   }
 
@@ -69,6 +72,7 @@ class Post {
     int? comments,
     int? shares,
     bool? liked,
+    String? userId,
   }) {
     return Post(
       id: id ?? this.id,
@@ -82,6 +86,7 @@ class Post {
       comments: comments ?? this.comments,
       shares: shares ?? this.shares,
       liked: liked ?? this.liked,
+      userId: userId ?? this.userId,
     );
   }
 }
@@ -136,6 +141,29 @@ class Question {
       'user_id': userId,
     };
   }
+
+  Question copyWith({
+    String? course,
+    String? title,
+    String? author,
+    int? replies,
+    String? time,
+    bool? solved,
+    String? content,
+    String? userId,
+  }) {
+    return Question(
+      id: id,
+      course: course ?? this.course,
+      title: title ?? this.title,
+      author: author ?? this.author,
+      replies: replies ?? this.replies,
+      time: time ?? this.time,
+      solved: solved ?? this.solved,
+      content: content ?? this.content,
+      userId: userId ?? this.userId,
+    );
+  }
 }
 
 class StudyGroup {
@@ -143,6 +171,7 @@ class StudyGroup {
   final String name;
   final String course;
   final int members;
+  final int maxMembers;
   final String meetTime;
   final String location;
   final String description;
@@ -156,6 +185,7 @@ class StudyGroup {
     required this.name,
     required this.course,
     required this.members,
+    this.maxMembers = 10,
     required this.meetTime,
     required this.location,
     this.description = '',
@@ -170,6 +200,7 @@ class StudyGroup {
     String? name,
     String? course,
     int? members,
+    int? maxMembers,
     String? meetTime,
     String? location,
     String? description,
@@ -183,6 +214,7 @@ class StudyGroup {
       name: name ?? this.name,
       course: course ?? this.course,
       members: members ?? this.members,
+      maxMembers: maxMembers ?? this.maxMembers,
       meetTime: meetTime ?? this.meetTime,
       location: location ?? this.location,
       description: description ?? this.description,
@@ -204,6 +236,7 @@ class StudyGroup {
       name: json['name'] ?? '',
       course: json['course'] ?? '',
       members: json['members'] ?? memberIds.length,
+      maxMembers: json['maxMembers'] ?? json['max_members'] ?? 10,
       meetTime: json['meetTime'] ?? json['meet_time'] ?? '',
       location: json['location'] ?? '',
       description: json['description'] ?? '',

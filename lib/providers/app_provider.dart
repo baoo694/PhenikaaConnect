@@ -323,6 +323,36 @@ class AppProvider extends ChangeNotifier {
     return false;
   }
 
+  // Update post
+  Future<bool> updatePost(String postId, String content, {String? imageBase64, bool removeImage = false}) async {
+    final result = await SupabaseService.updatePost(postId, content, imageBase64: imageBase64, removeImage: removeImage);
+    if (result != null && result['success'] == true) {
+      // Update post in place instead of reloading all posts
+      final index = _posts.indexWhere((p) => p.id == postId);
+      if (index != -1) {
+        final updatedPost = _posts[index].copyWith(
+          content: result['content'] as String,
+          imageUrl: result['imageUrl'] as String?,
+        );
+        _posts[index] = updatedPost;
+        notifyListeners();
+      }
+      return true;
+    }
+    return false;
+  }
+
+  // Delete post
+  Future<bool> deletePost(String postId) async {
+    final success = await SupabaseService.deletePost(postId);
+    if (success) {
+      _posts.removeWhere((p) => p.id == postId);
+      notifyListeners();
+      return true;
+    }
+    return false;
+  }
+
   // Toggle post like
   Future<bool> togglePostLike(String postId) async {
     // Optimistic update to avoid list rebuild/scroll jump
@@ -348,8 +378,8 @@ class AppProvider extends ChangeNotifier {
   }
 
   // Create comment for a post
-  Future<bool> createComment(String postId, String content) async {
-    final success = await SupabaseService.createComment(postId, content);
+  Future<bool> createComment(String postId, String content, {String? parentId}) async {
+    final success = await SupabaseService.createComment(postId, content, parentId: parentId);
     if (success) {
       await loadPosts();
       return true;
@@ -384,6 +414,26 @@ class AppProvider extends ChangeNotifier {
       return true;
     }
     return false;
+  }
+
+  Future<bool> updateQuestion(
+    String questionId,
+    Map<String, dynamic> updates,
+  ) async {
+    final success =
+        await SupabaseService.updateQuestion(questionId, updates);
+    if (success) {
+      await loadQuestions();
+    }
+    return success;
+  }
+
+  Future<bool> deleteQuestion(String questionId) async {
+    final success = await SupabaseService.deleteQuestion(questionId);
+    if (success) {
+      await loadQuestions();
+    }
+    return success;
   }
 
   // Create study group
@@ -429,6 +479,19 @@ class AppProvider extends ChangeNotifier {
     return success;
   }
 
+  Future<void> refreshAllData() async {
+    await loadCurrentUser();
+    await loadPosts();
+    await loadQuestions();
+    await loadStudyGroups();
+    await loadEvents();
+    await loadClubs();
+    await loadAnnouncements();
+    await loadLocations();
+    await loadClassSchedule();
+    await loadCourses();
+  }
+
   // Create event
   Future<bool> createEvent(Map<String, dynamic> eventData) async {
     final event = await SupabaseService.createEvent(eventData);
@@ -444,7 +507,18 @@ class AppProvider extends ChangeNotifier {
   Future<bool> joinEvent(String eventId) async {
     final success = await SupabaseService.joinEvent(eventId);
     if (success) {
-      await loadEvents(); // Reload to get updated attendee count
+      // Update event immediately without reloading all events
+      final index = _events.indexWhere((e) => e.id == eventId);
+      if (index != -1) {
+        _events[index] = _events[index].copyWith(
+          attendees: _events[index].attendees + 1,
+          isJoined: true,
+        );
+        notifyListeners();
+      } else {
+        // If not found, reload all events
+        await loadEvents();
+      }
       return true;
     }
     return false;
@@ -454,7 +528,18 @@ class AppProvider extends ChangeNotifier {
   Future<bool> leaveEvent(String eventId) async {
     final success = await SupabaseService.leaveEvent(eventId);
     if (success) {
-      await loadEvents(); // Reload to get updated attendee count
+      // Update event immediately without reloading all events
+      final index = _events.indexWhere((e) => e.id == eventId);
+      if (index != -1) {
+        _events[index] = _events[index].copyWith(
+          attendees: _events[index].attendees > 0 ? _events[index].attendees - 1 : 0,
+          isJoined: false,
+        );
+        notifyListeners();
+      } else {
+        // If not found, reload all events
+        await loadEvents();
+      }
       return true;
     }
     return false;
@@ -464,7 +549,20 @@ class AppProvider extends ChangeNotifier {
   Future<bool> joinClub(String clubId) async {
     final success = await SupabaseService.joinClub(clubId);
     if (success) {
-      await loadClubs(); // Reload to get updated member count
+      // Update club immediately without reloading all clubs
+      final index = _clubs.indexWhere((c) => c['id'] == clubId);
+      if (index != -1) {
+        final currentMembers = _clubs[index]['members_count'] ?? 0;
+        _clubs[index] = {
+          ..._clubs[index],
+          'members_count': currentMembers + 1,
+          'isJoined': true,
+        };
+        notifyListeners();
+      } else {
+        // If not found, reload all clubs
+        await loadClubs();
+      }
       return true;
     }
     return false;
@@ -474,7 +572,20 @@ class AppProvider extends ChangeNotifier {
   Future<bool> leaveClub(String clubId) async {
     final success = await SupabaseService.leaveClub(clubId);
     if (success) {
-      await loadClubs(); // Reload to get updated member count
+      // Update club immediately without reloading all clubs
+      final index = _clubs.indexWhere((c) => c['id'] == clubId);
+      if (index != -1) {
+        final currentMembers = _clubs[index]['members_count'] ?? 0;
+        _clubs[index] = {
+          ..._clubs[index],
+          'members_count': currentMembers > 0 ? currentMembers - 1 : 0,
+          'isJoined': false,
+        };
+        notifyListeners();
+      } else {
+        // If not found, reload all clubs
+        await loadClubs();
+      }
       return true;
     }
     return false;

@@ -8,6 +8,7 @@ class Event {
   final int attendees;
   final String category;
   final String image;
+  final bool isJoined;
 
   const Event({
     required this.id,
@@ -19,6 +20,7 @@ class Event {
     required this.attendees,
     required this.category,
     required this.image,
+    this.isJoined = false,
   });
 
   factory Event.fromJson(Map<String, dynamic> json) {
@@ -32,6 +34,7 @@ class Event {
       attendees: json['attendees'] ?? 0,
       category: json['category'] ?? '',
       image: json['image'] ?? '',
+      isJoined: json['isJoined'] ?? false,
     );
   }
 
@@ -46,7 +49,34 @@ class Event {
       'attendees': attendees,
       'category': category,
       'image': image,
+      'isJoined': isJoined,
     };
+  }
+
+  Event copyWith({
+    String? id,
+    String? title,
+    String? date,
+    String? time,
+    String? location,
+    String? organizer,
+    int? attendees,
+    String? category,
+    String? image,
+    bool? isJoined,
+  }) {
+    return Event(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      date: date ?? this.date,
+      time: time ?? this.time,
+      location: location ?? this.location,
+      organizer: organizer ?? this.organizer,
+      attendees: attendees ?? this.attendees,
+      category: category ?? this.category,
+      image: image ?? this.image,
+      isJoined: isJoined ?? this.isJoined,
+    );
   }
 }
 
@@ -97,6 +127,7 @@ class Club {
   final String category;
   final String description;
   final bool active;
+  final bool isJoined;
 
   const Club({
     required this.id,
@@ -105,6 +136,7 @@ class Club {
     required this.category,
     required this.description,
     required this.active,
+    this.isJoined = false,
   });
 
   factory Club.fromJson(Map<String, dynamic> json) {
@@ -115,6 +147,7 @@ class Club {
       category: json['category'] ?? '',
       description: json['description'] ?? '',
       active: json['active'] ?? false,
+      isJoined: json['isJoined'] ?? false,
     );
   }
 
@@ -126,6 +159,27 @@ class Club {
       'category': category,
       'description': description,
       'active': active,
+      'isJoined': isJoined,
     };
+  }
+
+  Club copyWith({
+    String? id,
+    String? name,
+    int? members,
+    String? category,
+    String? description,
+    bool? active,
+    bool? isJoined,
+  }) {
+    return Club(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      members: members ?? this.members,
+      category: category ?? this.category,
+      description: description ?? this.description,
+      active: active ?? this.active,
+      isJoined: isJoined ?? this.isJoined,
+    );
   }
 }
