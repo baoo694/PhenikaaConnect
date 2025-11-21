@@ -4,10 +4,36 @@ import '../models/post.dart';
 import '../widgets/common_widgets.dart';
 import 'comments_screen.dart';
 
-class PostDetailScreen extends StatelessWidget {
+class PostDetailScreen extends StatefulWidget {
   final Post post;
 
   const PostDetailScreen({super.key, required this.post});
+
+  @override
+  State<PostDetailScreen> createState() => _PostDetailScreenState();
+}
+
+class _PostDetailScreenState extends State<PostDetailScreen> {
+  late Post _post;
+
+  @override
+  void initState() {
+    super.initState();
+    _post = widget.post;
+  }
+
+  Future<void> _openComments() async {
+    final updatedCount = await Navigator.of(context).push<int>(
+      MaterialPageRoute(
+        builder: (_) => CommentsScreen(post: _post),
+      ),
+    );
+    if (updatedCount != null && updatedCount != _post.comments) {
+      setState(() {
+        _post = _post.copyWith(comments: updatedCount);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,13 +53,7 @@ class PostDetailScreen extends StatelessWidget {
             CustomButton(
               text: 'Xem bình luận',
               icon: LucideIcons.messageCircle,
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => CommentsScreen(post: post),
-                  ),
-                );
-              },
+              onPressed: _openComments,
             ),
           ],
         ),
@@ -49,7 +69,7 @@ class PostDetailScreen extends StatelessWidget {
           Row(
             children: [
               CustomAvatar(
-                initials: post.avatar,
+                initials: _post.avatar,
                 radius: 28,
               ),
               const SizedBox(width: 12),
@@ -58,13 +78,13 @@ class PostDetailScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      post.author,
+                      _post.author,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
                     ),
                     Text(
-                      '${post.major} • ${post.time}',
+                      '${_post.major} • ${_post.time}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Theme.of(context)
                                 .colorScheme
@@ -78,13 +98,13 @@ class PostDetailScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          if (post.imageUrl != null && post.imageUrl!.isNotEmpty) ...[
+          if (_post.imageUrl != null && _post.imageUrl!.isNotEmpty) ...[
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: AspectRatio(
                 aspectRatio: 4 / 3,
                 child: Image.network(
-                  post.imageUrl!,
+                  _post.imageUrl!,
                   fit: BoxFit.cover,
                   width: double.infinity,
                   errorBuilder: (context, error, stackTrace) => Container(
@@ -98,7 +118,7 @@ class PostDetailScreen extends StatelessWidget {
             const SizedBox(height: 16),
           ],
           Text(
-            post.content,
+            _post.content,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.6),
           ),
         ],
@@ -115,14 +135,14 @@ class PostDetailScreen extends StatelessWidget {
             context,
             icon: LucideIcons.heart,
             label: 'Lượt thích',
-            value: '${post.likes}',
-            iconColor: post.liked ? Colors.red : Colors.grey,
+            value: '${_post.likes}',
+            iconColor: _post.liked ? Colors.red : Colors.grey,
           ),
           _buildStatItem(
             context,
             icon: LucideIcons.messageSquare,
             label: 'Bình luận',
-            value: '${post.comments}',
+            value: '${_post.comments}',
           ),
         ],
       ),

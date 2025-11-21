@@ -328,6 +328,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildTodaySchedule(BuildContext context) {
     final todayName = _weekdayToEnglish(DateTime.now().weekday);
     return CustomCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Consumer<AppProvider>(
         builder: (context, appProvider, child) {
           final isLoading = appProvider.isScheduleLoading;
@@ -357,11 +358,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   TextButton(
                     onPressed: () => _navigateToSchedule(context),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
                     child: const Text('Xem tất cả'),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
               if (isLoading)
                 const Center(
                   child: Padding(

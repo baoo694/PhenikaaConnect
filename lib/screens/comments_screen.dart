@@ -47,6 +47,20 @@ class _CommentsScreenState extends State<CommentsScreen> {
     }
   }
 
+  int get _totalComments {
+    int total = 0;
+    for (final comment in _comments) {
+      total += 1;
+      final replies = (comment['replies'] as List?) ?? [];
+      total += replies.length;
+    }
+    return total;
+  }
+
+  void _closeWithResult() {
+    Navigator.of(context).pop(_totalComments);
+  }
+
   Future<void> _send() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
@@ -290,8 +304,19 @@ class _CommentsScreenState extends State<CommentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Bình luận')),
+    return WillPopScope(
+      onWillPop: () async {
+        _closeWithResult();
+        return false;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Bình luận'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: _closeWithResult,
+          ),
+        ),
       body: Column(
         children: [
           Expanded(
@@ -337,6 +362,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
