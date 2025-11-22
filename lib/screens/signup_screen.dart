@@ -84,9 +84,25 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
 
       if (errorMessage == null) {
-        // Load user data
-        await appProvider.loadCurrentUser();
-        await appProvider.initialize();
+        // Check if account is locked or disabled (shouldn't happen for new accounts, but check anyway)
+        final currentUser = appProvider.currentUser;
+        if (currentUser != null) {
+          if (currentUser.isLocked || currentUser.accountStatus == 'disabled') {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.'),
+                  backgroundColor: Colors.red,
+                  duration: Duration(seconds: 5),
+                ),
+              );
+            }
+            return;
+          }
+        }
+
+        // Load all data after successful signup
+        await appProvider.loadAllData();
 
         if (mounted) {
           Navigator.of(context).pushReplacement(

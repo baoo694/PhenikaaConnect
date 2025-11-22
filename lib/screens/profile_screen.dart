@@ -4,6 +4,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../providers/app_provider.dart';
 import '../widgets/common_widgets.dart';
 import '../services/supabase_service.dart';
+import 'admin_dashboard_screen.dart';
+import 'club_leader_workspace_screen.dart';
 import 'edit_profile_screen.dart';
 import 'login_screen.dart';
 
@@ -17,18 +19,16 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final TextEditingController _feedbackController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
   void dispose() {
     _tabController.dispose();
-    _feedbackController.dispose();
     super.dispose();
   }
 
@@ -41,7 +41,6 @@ class _ProfileScreenState extends State<ProfileScreen>
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(icon: Icon(LucideIcons.megaphone), text: 'Tiện ích'),
             Tab(icon: Icon(LucideIcons.settings), text: 'Cài đặt'),
             Tab(icon: Icon(LucideIcons.user), text: 'Thông tin'),
           ],
@@ -50,7 +49,6 @@ class _ProfileScreenState extends State<ProfileScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildUtilitiesTab(),
           _buildSettingsTab(),
           _buildInfoTab(),
         ],
@@ -58,29 +56,8 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _buildUtilitiesTab() {
-    return RefreshIndicator(
-      onRefresh: () =>
-          context.read<AppProvider>().refreshAllData(),
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            _buildAnnouncementsCard(),
-            const SizedBox(height: 16),
-            _buildCarpoolCard(),
-            const SizedBox(height: 16),
-            _buildLostFoundCard(),
-            const SizedBox(height: 16),
-            _buildFeedbackCard(),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildAnnouncementsCard() {
+  Widget _buildRoleActionsCard(AppProvider appProvider) {
     return CustomCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -88,279 +65,59 @@ class _ProfileScreenState extends State<ProfileScreen>
           Row(
             children: [
               Icon(
-                LucideIcons.megaphone,
-                color: Colors.orange,
+                LucideIcons.shield,
+                color: Theme.of(context).colorScheme.primary,
                 size: 20,
               ),
               const SizedBox(width: 8),
               Text(
-                'Thông báo quan trọng',
+                'Quyền nâng cao',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Cập nhật mới nhất từ nhà trường',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildAnnouncementsList(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAnnouncementsList() {
-    return Consumer<AppProvider>(
-      builder: (context, appProvider, child) {
-        if (appProvider.announcements.isEmpty) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('Chưa có thông báo nào'),
-            ),
-          );
-        }
-
-        return Column(
-          children: appProvider.announcements.map((announcement) => 
-            _buildAnnouncementItem(announcement)
-          ).toList(),
-        );
-      },
-    );
-  }
-
-  Widget _buildAnnouncementItem(Map<String, dynamic> announcement) {
-    final priority = announcement['priority'] ?? 'normal';
-    final createdAt = announcement['created_at'] ?? '';
-    
-    final isHighPriority = priority == 'high';
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isHighPriority
-            ? const Color(0xFFFFF5F5)
-            : Theme.of(context).colorScheme.surface,
-        border: Border.all(
-          color: isHighPriority
-              ? const Color(0xFFFECACA)
-              : Theme.of(context).colorScheme.outline.withOpacity(0.2),
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  announcement['title'] ?? '',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ),
-              CustomBadge(
-                text: isHighPriority ? 'Khẩn' : 'Thông thường',
-                type: isHighPriority ? BadgeType.error : BadgeType.primary,
-                size: BadgeSize.small,
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            createdAt,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCarpoolCard() {
-    return CustomCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        LucideIcons.car,
-                        color: Colors.blue,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Carpool & Đi chung xe',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Tìm hoặc chia sẻ chuyến đi',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                      fontWeight: FontWeight.bold,
                     ),
-                  ),
-                ],
-              ),
-              IconButton(
-                onPressed: () {},
-                icon: const Icon(LucideIcons.plus),
-                style: IconButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
-                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          _buildCarpoolList(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCarpoolList() {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Text('Tính năng đang phát triển'),
-      ),
-    );
-  }
-
-  Widget _buildLostFoundCard() {
-    return CustomCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        LucideIcons.package,
-                        color: Colors.purple,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Đồ thất lạc',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Báo cáo hoặc tìm đồ bị mất',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                    ),
-                  ),
-                ],
+          const SizedBox(height: 12),
+          if (appProvider.isAdmin)
+            SizedBox(
+              width: double.infinity,
+              child: CustomButton(
+                text: 'Mở bảng điều hành admin',
+                onPressed: _openAdminDashboard,
               ),
-              IconButton(
-                onPressed: () {},
-                icon: const Icon(LucideIcons.plus),
-                style: IconButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildLostFoundList(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLostFoundList() {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Text('Tính năng đang phát triển'),
-      ),
-    );
-  }
-
-  Widget _buildFeedbackCard() {
-    return CustomCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                LucideIcons.messageSquare,
-                color: Colors.green,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Góp ý & Phản hồi',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Chia sẻ ý kiến của bạn với nhà trường',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
             ),
-          ),
-          const SizedBox(height: 16),
-          CustomInput(
-            controller: _feedbackController,
-            hintText: 'Nhập góp ý hoặc phản hồi của bạn...',
-            maxLines: 5,
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: CustomButton(
-              text: 'Gửi phản hồi',
-              onPressed: () {
-                if (_feedbackController.text.isNotEmpty) {
-                  // Send feedback logic here
-                  _feedbackController.clear();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Phản hồi đã được gửi!')),
-                  );
-                }
-              },
+          if (appProvider.isAdmin && appProvider.isClubLeader)
+            const SizedBox(height: 8),
+          if (appProvider.isClubLeader)
+            SizedBox(
+              width: double.infinity,
+              child: CustomButton(
+                text: 'Không gian chủ nhiệm CLB',
+                type: ButtonType.secondary,
+                onPressed: _openClubWorkspace,
+              ),
             ),
-          ),
         ],
+      ),
+    );
+  }
+
+
+
+
+  void _openAdminDashboard() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const AdminDashboardScreen(),
+      ),
+    );
+  }
+
+  void _openClubWorkspace() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const ClubLeaderWorkspaceScreen(),
       ),
     );
   }
@@ -369,11 +126,14 @@ class _ProfileScreenState extends State<ProfileScreen>
     return RefreshIndicator(
       onRefresh: () =>
           context.read<AppProvider>().refreshAllData(),
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
+      child: Consumer<AppProvider>(
+        builder: (context, appProvider, _) {
+          final children = <Widget>[];
+          if (appProvider.isAdmin || appProvider.isClubLeader) {
+            children.add(_buildRoleActionsCard(appProvider));
+          }
+          children.addAll([
+            const SizedBox(height: 16),
             _buildNotificationSettingsCard(),
             const SizedBox(height: 16),
             _buildPrivacySecurityCard(),
@@ -381,8 +141,14 @@ class _ProfileScreenState extends State<ProfileScreen>
             _buildHelpSupportCard(),
             const SizedBox(height: 16),
             _buildLogoutButton(),
-          ],
-        ),
+          ]);
+
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            child: Column(children: children),
+          );
+        },
       ),
     );
   }

@@ -6,7 +6,9 @@ import '../providers/app_provider.dart';
 import 'announcement_detail_screen.dart';
 
 class AnnouncementsScreen extends StatefulWidget {
-  const AnnouncementsScreen({super.key});
+  final bool showUnreadOnly;
+
+  const AnnouncementsScreen({super.key, this.showUnreadOnly = false});
 
   @override
   State<AnnouncementsScreen> createState() => _AnnouncementsScreenState();
@@ -14,6 +16,13 @@ class AnnouncementsScreen extends StatefulWidget {
 
 class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   String _selectedCategory = 'Tất cả';
+  bool _showUnreadOnly = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _showUnreadOnly = widget.showUnreadOnly;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,26 +55,57 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   Widget _buildCategoryFilter() {
     final categories = ['Tất cả', 'Học tập', 'Sự kiện', 'Tuyển sinh', 'Khác'];
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: categories.map((category) {
-          final isSelected = _selectedCategory == category;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: CustomButton(
-              text: category,
-              type: isSelected ? ButtonType.primary : ButtonType.outline,
-              size: ButtonSize.small,
-              onPressed: () {
-                setState(() {
-                  _selectedCategory = category;
-                });
-              },
-            ),
-          );
-        }).toList(),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Toggle button for unread only
+        Consumer<AppProvider>(
+          builder: (context, appProvider, child) {
+            final unreadCount = appProvider.unreadAnnouncementsCount;
+            if (unreadCount == 0 && !_showUnreadOnly) {
+              return const SizedBox.shrink();
+            }
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: CustomButton(
+                text: _showUnreadOnly 
+                    ? 'Hiển thị tất cả ($unreadCount chưa đọc)'
+                    : 'Chỉ hiển thị chưa đọc ($unreadCount)',
+                type: _showUnreadOnly ? ButtonType.primary : ButtonType.outline,
+                size: ButtonSize.small,
+                icon: _showUnreadOnly ? LucideIcons.eye : LucideIcons.eyeOff,
+                onPressed: () {
+                  setState(() {
+                    _showUnreadOnly = !_showUnreadOnly;
+                  });
+                },
+              ),
+            );
+          },
+        ),
+        // Category filter
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: categories.map((category) {
+              final isSelected = _selectedCategory == category;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: CustomButton(
+                  text: category,
+                  type: isSelected ? ButtonType.primary : ButtonType.outline,
+                  size: ButtonSize.small,
+                  onPressed: () {
+                    setState(() {
+                      _selectedCategory = category;
+                    });
+                  },
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
     );
   }
 
@@ -80,6 +120,29 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
           return const Center(
             child: Text('Chưa có thông báo nào'),
           );
+        }
+
+        // Check if filtering by unread and no unread announcements
+        if (_showUnreadOnly) {
+          final hasUnread = appProvider.announcements.any((announcement) {
+            final idStr = (announcement['id'] ?? '').toString();
+            return idStr.isNotEmpty && !appProvider.isAnnouncementRead(idStr);
+          });
+          if (!hasUnread) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(LucideIcons.checkCircle2, size: 64, color: Colors.grey[400]),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Không có thông báo chưa đọc',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            );
+          }
         }
 
         // Map priority to category for filtering
@@ -105,9 +168,43 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
           };
         }).toList();
 
-        final filteredAnnouncements = _selectedCategory == 'Tất cả'
+        var filteredAnnouncements = _selectedCategory == 'Tất cả'
             ? announcementsWithCategory
             : announcementsWithCategory.where((announcement) => announcement['category'] == _selectedCategory).toList();
+
+        // Filter by unread if needed
+        if (_showUnreadOnly) {
+          filteredAnnouncements = filteredAnnouncements.where((announcement) => announcement['is_read'] != true).toList();
+        }
+
+        // Sort: unread first, then by priority (high > normal > low), then by date (newest first)
+        filteredAnnouncements.sort((a, b) {
+          // First priority: unread announcements come first
+          final aIsRead = a['is_read'] == true;
+          final bIsRead = b['is_read'] == true;
+          if (aIsRead != bIsRead) {
+            return aIsRead ? 1 : -1; // unread (false) comes before read (true)
+          }
+
+          // Second priority: sort by priority (high > normal > low)
+          const priorityOrder = {'high': 0, 'normal': 1, 'low': 2};
+          final aPriority = priorityOrder[(a['priority'] ?? 'normal').toString()] ?? 1;
+          final bPriority = priorityOrder[(b['priority'] ?? 'normal').toString()] ?? 1;
+          if (aPriority != bPriority) {
+            return aPriority.compareTo(bPriority);
+          }
+
+          // Third priority: sort by date (newest first)
+          DateTime parseDate(dynamic value) {
+            if (value == null) return DateTime.fromMillisecondsSinceEpoch(0);
+            return DateTime.tryParse(value.toString()) ??
+                DateTime.fromMillisecondsSinceEpoch(0);
+          }
+
+          final aDate = parseDate(a['created_at']);
+          final bDate = parseDate(b['created_at']);
+          return bDate.compareTo(aDate);
+        });
 
         return Column(
           children: filteredAnnouncements.map((announcement) => 

@@ -1,0 +1,313 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../config/supabase_config.dart';
+import '../models/event.dart';
+
+class ClubLeaderService {
+  static final SupabaseClient _client = SupabaseConfig.client;
+
+  static Future<Club?> fetchOwnClub({required String userId}) async {
+    final response = await _client
+        .from('clubs')
+        .select('*')
+        .eq('leader_id', userId)
+        .maybeSingle();
+    if (response == null) return null;
+    return Club.fromJson(response);
+  }
+
+  static Future<List<ClubMember>> fetchMembers(String clubId, {String? status}) async {
+    var query = _client
+        .from('club_members')
+        .select('*')
+        .eq('club_id', clubId);
+    if (status != null) {
+      query = query.eq('status', status);
+    }
+    final response = await query.order('joined_at', ascending: true);
+    return response.map<ClubMember>((json) => ClubMember.fromJson(json)).toList();
+  }
+
+  static Future<List<ClubPost>> fetchPosts(String clubId) async {
+    final response = await _client
+        .from('club_posts')
+        .select('*')
+        .eq('club_id', clubId)
+        .order('created_at', ascending: false);
+    return response.map<ClubPost>((json) => ClubPost.fromJson(json)).toList();
+  }
+
+  static Future<List<ClubActivity>> fetchActivities(String clubId) async {
+    final response = await _client
+        .from('club_activities')
+        .select('*')
+        .eq('club_id', clubId)
+        .order('activity_date', ascending: true);
+    return response.map<ClubActivity>((json) => ClubActivity.fromJson(json)).toList();
+  }
+
+  static Future<bool> createClub({
+    required String name,
+    required String description,
+    required String category,
+    required String leaderId,
+  }) async {
+    try {
+      await _client.from('clubs').insert({
+        'name': name,
+        'description': description,
+        'category': category,
+        'leader_id': leaderId,
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> createClubPost({
+    required String clubId,
+    required String authorId,
+    required String content,
+    String? title,
+    VisibilityScope visibility = VisibilityScope.clubOnly,
+  }) async {
+    try {
+      await _client.from('club_posts').insert({
+        'club_id': clubId,
+        'author_id': authorId,
+        'content': content,
+        if (title != null) 'title': title,
+        'visibility': visibility.value,
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> createClubActivity({
+    required String clubId,
+    required String creatorId,
+    required String title,
+    required DateTime date,
+    String? description,
+    String? location,
+  }) async {
+    try {
+      await _client.from('club_activities').insert({
+        'club_id': clubId,
+        'creator_id': creatorId,
+        'title': title,
+        'description': description,
+        'activity_date': date.toIso8601String(),
+        if (location != null) 'location': location,
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> updateMemberStatus({
+    required String membershipId,
+    required String status,
+  }) async {
+    try {
+      await _client
+          .from('club_members')
+          .update({'status': status})
+          .eq('id', membershipId);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // Event management for club leader
+  static Future<List<Event>> fetchClubEvents(String clubId) async {
+    try {
+      final response = await _client
+          .from('events')
+          .select('''
+            *,
+            users!events_organizer_id_fkey(name)
+          ''')
+          .eq('club_id', clubId)
+          .order('event_date', ascending: true);
+      
+      return response.map<Event>((json) {
+        final organizer = json['users'];
+        return Event(
+          id: json['id'] ?? '',
+          title: json['title'] ?? '',
+          description: json['description']?.toString(),
+          date: json['event_date']?.toString().split('T')[0] ?? '',
+          time: json['event_time']?.toString() ?? '',
+          location: json['location'] ?? '',
+          organizer: organizer?['name'] ?? '',
+          attendees: json['attendees_count'] ?? 0,
+          maxAttendees: json['max_attendees'] != null ? int.tryParse(json['max_attendees'].toString()) : null,
+          category: json['category'] ?? '',
+          image: json['image_url'] ?? '',
+          clubId: json['club_id']?.toString(),
+          status: parseApprovalStatus(json['status']?.toString()),
+          visibility: parseVisibilityScope(json['visibility']?.toString()),
+        );
+      }).toList();
+    } catch (e) {
+      print('Error fetching club events: $e');
+      return [];
+    }
+  }
+
+  static Future<bool> createEvent({
+    required String clubId,
+    required String organizerId,
+    required String title,
+    required String description,
+    required DateTime eventDate,
+    required String eventTime,
+    required String location,
+    required String category,
+    String? imageUrl,
+    int? maxAttendees,
+    VisibilityScope visibility = VisibilityScope.campus,
+  }) async {
+    try {
+      await _client.from('events').insert({
+        'club_id': clubId,
+        'organizer_id': organizerId,
+        'title': title,
+        'description': description,
+        'event_date': eventDate.toIso8601String().split('T')[0],
+        'event_time': eventTime,
+        'location': location,
+        'category': category,
+        'image_url': imageUrl,
+        'max_attendees': maxAttendees,
+        'visibility': visibility.value,
+        'status': 'pending', // Club leader events need admin approval
+      });
+      return true;
+    } catch (e) {
+      print('Error creating event: $e');
+      return false;
+    }
+  }
+
+  // Update and delete methods
+  static Future<bool> updateClubActivity({
+    required String activityId,
+    required String title,
+    required DateTime date,
+    String? description,
+    String? location,
+  }) async {
+    try {
+      await _client.from('club_activities').update({
+        'title': title,
+        'description': description,
+        'activity_date': date.toIso8601String(),
+        if (location != null) 'location': location,
+      }).eq('id', activityId);
+      return true;
+    } catch (e) {
+      print('Error updating activity: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> deleteClubActivity(String activityId) async {
+    try {
+      await _client.from('club_activities').delete().eq('id', activityId);
+      return true;
+    } catch (e) {
+      print('Error deleting activity: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> updateClubPost({
+    required String postId,
+    required String content,
+    String? title,
+    VisibilityScope? visibility,
+  }) async {
+    try {
+      final updateData = <String, dynamic>{
+        'content': content,
+      };
+      if (title != null) {
+        updateData['title'] = title;
+      }
+      if (visibility != null) {
+        updateData['visibility'] = visibility.value;
+      }
+      await _client.from('club_posts').update(updateData).eq('id', postId);
+      return true;
+    } catch (e) {
+      print('Error updating post: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> deleteClubPost(String postId) async {
+    try {
+      await _client.from('club_posts').delete().eq('id', postId);
+      return true;
+    } catch (e) {
+      print('Error deleting post: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> updateEvent({
+    required String eventId,
+    required String title,
+    required String description,
+    required DateTime eventDate,
+    required String eventTime,
+    required String location,
+    required String category,
+    String? imageUrl,
+    int? maxAttendees,
+    VisibilityScope? visibility,
+  }) async {
+    try {
+      final updateData = <String, dynamic>{
+        'title': title,
+        'description': description,
+        'event_date': eventDate.toIso8601String().split('T')[0],
+        'event_time': eventTime,
+        'location': location,
+        'category': category,
+        'status': 'pending', // Updated events need admin approval again
+      };
+      if (imageUrl != null) {
+        updateData['image_url'] = imageUrl;
+      }
+      if (maxAttendees != null) {
+        updateData['max_attendees'] = maxAttendees;
+      }
+      if (visibility != null) {
+        updateData['visibility'] = visibility.value;
+      }
+      await _client.from('events').update(updateData).eq('id', eventId);
+      return true;
+    } catch (e) {
+      print('Error updating event: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> deleteEvent(String eventId) async {
+    try {
+      await _client.from('events').delete().eq('id', eventId);
+      return true;
+    } catch (e) {
+      print('Error deleting event: $e');
+      return false;
+    }
+  }
+}
+

@@ -19,6 +19,7 @@ class _CampusScreenState extends State<CampusScreen>
   late TabController _tabController;
   String _searchQuery = '';
   String _selectedCategory = 'Tất cả';
+  String _selectedClubCategory = 'Tất cả';
   bool _showJoinedOnly = false; // Filter for joined events
   bool _showJoinedClubsOnly = false; // Filter for joined clubs
   int _lastProviderSubTabIndex = 0; // Track the last sub tab index from provider
@@ -692,6 +693,7 @@ class _CampusScreenState extends State<CampusScreen>
       },
       borderRadius: BorderRadius.circular(12),
       child: Container(
+        width: double.infinity,
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
           border: Border.all(
@@ -854,58 +856,79 @@ class _CampusScreenState extends State<CampusScreen>
   }
 
   Widget _buildClubsTab() {
-    return RefreshIndicator(
-      onRefresh: () =>
-          context.read<AppProvider>().loadClubs(),
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CustomCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        LucideIcons.users,
-                        color: Colors.orange,
-                        size: 24,
+    return Column(
+      children: [
+        // Fixed header section
+        Container(
+          padding: const EdgeInsets.all(16),
+          child: CustomCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Câu lạc bộ & Tổ chức sinh viên',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Câu lạc bộ & Tổ chức sinh viên',
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Tham gia CLB và kết nối với sinh viên',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                              ),
-                            ),
-                          ],
-                        ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Tham gia CLB và kết nối với sinh viên',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _buildJoinedClubsFilter(),
-                  const SizedBox(height: 16),
-                  _buildClubsGrid(),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _buildClubCategoryFilter(),
+                const SizedBox(height: 12),
+                _buildJoinedClubsFilter(),
+              ],
             ),
-          ],
+          ),
         ),
+        // Scrollable clubs list
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () =>
+                context.read<AppProvider>().loadClubs(),
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+              child: _buildClubsGrid(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildClubCategoryFilter() {
+    final categories = ['Tất cả', 'Học thuật', 'Văn hóa', 'Thể thao', 'Nghề nghiệp'];
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: categories.map((category) {
+          final isSelected = _selectedClubCategory == category;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: CustomButton(
+              text: category,
+              type: isSelected ? ButtonType.primary : ButtonType.outline,
+              size: ButtonSize.small,
+              onPressed: () {
+                setState(() {
+                  _selectedClubCategory = category;
+                });
+              },
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -973,6 +996,11 @@ class _CampusScreenState extends State<CampusScreen>
         }
         
         var filteredClubs = appProvider.clubs;
+        
+        // Filter by category
+        if (_selectedClubCategory != 'Tất cả') {
+          filteredClubs = filteredClubs.where((c) => c['category'] == _selectedClubCategory).toList();
+        }
         
         // Filter by joined status if enabled
         if (_showJoinedClubsOnly) {

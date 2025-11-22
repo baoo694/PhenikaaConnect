@@ -1,40 +1,107 @@
+enum ApprovalStatus { pending, approved, rejected }
+
+ApprovalStatus parseApprovalStatus(String? raw) {
+  switch ((raw ?? 'pending').toLowerCase()) {
+    case 'approved':
+      return ApprovalStatus.approved;
+    case 'rejected':
+      return ApprovalStatus.rejected;
+    default:
+      return ApprovalStatus.pending;
+  }
+}
+
+extension ApprovalStatusX on ApprovalStatus {
+  String get value {
+    switch (this) {
+      case ApprovalStatus.pending:
+        return 'pending';
+      case ApprovalStatus.approved:
+        return 'approved';
+      case ApprovalStatus.rejected:
+        return 'rejected';
+    }
+  }
+}
+
+enum VisibilityScope { public, campus, clubOnly }
+
+VisibilityScope parseVisibilityScope(String? raw) {
+  switch ((raw ?? 'club_only').toLowerCase()) {
+    case 'public':
+      return VisibilityScope.public;
+    case 'campus':
+      return VisibilityScope.campus;
+    default:
+      return VisibilityScope.clubOnly;
+  }
+}
+
+extension VisibilityScopeX on VisibilityScope {
+  String get value {
+    switch (this) {
+      case VisibilityScope.public:
+        return 'public';
+      case VisibilityScope.campus:
+        return 'campus';
+      case VisibilityScope.clubOnly:
+        return 'club_only';
+    }
+  }
+}
+
 class Event {
   final String id;
   final String title;
+  final String? description;
   final String date;
   final String time;
   final String location;
   final String organizer;
   final int attendees;
+  final int? maxAttendees;
   final String category;
   final String image;
   final bool isJoined;
+  final String? clubId;
+  final ApprovalStatus status;
+  final VisibilityScope visibility;
 
   const Event({
     required this.id,
     required this.title,
+    this.description,
     required this.date,
     required this.time,
     required this.location,
     required this.organizer,
     required this.attendees,
+    this.maxAttendees,
     required this.category,
     required this.image,
     this.isJoined = false,
+    this.clubId,
+    this.status = ApprovalStatus.pending,
+    this.visibility = VisibilityScope.campus,
   });
 
   factory Event.fromJson(Map<String, dynamic> json) {
     return Event(
       id: json['id'] ?? '',
       title: json['title'] ?? '',
+      description: json['description']?.toString(),
       date: json['date'] ?? '',
       time: json['time'] ?? '',
       location: json['location'] ?? '',
       organizer: json['organizer'] ?? '',
       attendees: json['attendees'] ?? 0,
+      maxAttendees: json['max_attendees'] != null ? int.tryParse(json['max_attendees'].toString()) : null,
       category: json['category'] ?? '',
       image: json['image'] ?? '',
       isJoined: json['isJoined'] ?? false,
+      clubId: json['club_id']?.toString(),
+      status: parseApprovalStatus(json['status']?.toString()),
+      visibility: parseVisibilityScope(json['visibility']?.toString()),
     );
   }
 
@@ -42,40 +109,55 @@ class Event {
     return {
       'id': id,
       'title': title,
+      'description': description,
       'date': date,
       'time': time,
       'location': location,
       'organizer': organizer,
       'attendees': attendees,
+      'max_attendees': maxAttendees,
       'category': category,
       'image': image,
       'isJoined': isJoined,
+      'club_id': clubId,
+      'status': status.value,
+      'visibility': visibility.value,
     };
   }
 
   Event copyWith({
     String? id,
     String? title,
+    String? description,
     String? date,
     String? time,
     String? location,
     String? organizer,
     int? attendees,
+    int? maxAttendees,
     String? category,
     String? image,
     bool? isJoined,
+    String? clubId,
+    ApprovalStatus? status,
+    VisibilityScope? visibility,
   }) {
     return Event(
       id: id ?? this.id,
       title: title ?? this.title,
+      description: description ?? this.description,
       date: date ?? this.date,
       time: time ?? this.time,
       location: location ?? this.location,
       organizer: organizer ?? this.organizer,
       attendees: attendees ?? this.attendees,
+      maxAttendees: maxAttendees ?? this.maxAttendees,
       category: category ?? this.category,
       image: image ?? this.image,
       isJoined: isJoined ?? this.isJoined,
+      clubId: clubId ?? this.clubId,
+      status: status ?? this.status,
+      visibility: visibility ?? this.visibility,
     );
   }
 }
@@ -128,6 +210,10 @@ class Club {
   final String description;
   final bool active;
   final bool isJoined;
+  final ApprovalStatus status;
+  final VisibilityScope visibility;
+  final String? leaderId;
+  final Map<String, dynamic> metadata;
 
   const Club({
     required this.id,
@@ -137,17 +223,25 @@ class Club {
     required this.description,
     required this.active,
     this.isJoined = false,
+    this.status = ApprovalStatus.pending,
+    this.visibility = VisibilityScope.clubOnly,
+    this.leaderId,
+    this.metadata = const {},
   });
 
   factory Club.fromJson(Map<String, dynamic> json) {
     return Club(
       id: json['id'] ?? '',
       name: json['name'] ?? '',
-      members: json['members'] ?? 0,
+      members: json['members_count'] ?? json['members'] ?? 0,
       category: json['category'] ?? '',
       description: json['description'] ?? '',
       active: json['active'] ?? false,
       isJoined: json['isJoined'] ?? false,
+      status: parseApprovalStatus(json['status']?.toString()),
+      visibility: parseVisibilityScope(json['visibility']?.toString()),
+      leaderId: json['leader_id']?.toString(),
+      metadata: Map<String, dynamic>.from(json['metadata'] ?? const {}),
     );
   }
 
@@ -155,11 +249,15 @@ class Club {
     return {
       'id': id,
       'name': name,
-      'members': members,
+      'members_count': members,
       'category': category,
       'description': description,
       'active': active,
       'isJoined': isJoined,
+      'status': status.value,
+      'visibility': visibility.value,
+      'leader_id': leaderId,
+      'metadata': metadata,
     };
   }
 
@@ -171,6 +269,10 @@ class Club {
     String? description,
     bool? active,
     bool? isJoined,
+    ApprovalStatus? status,
+    VisibilityScope? visibility,
+    String? leaderId,
+    Map<String, dynamic>? metadata,
   }) {
     return Club(
       id: id ?? this.id,
@@ -180,6 +282,117 @@ class Club {
       description: description ?? this.description,
       active: active ?? this.active,
       isJoined: isJoined ?? this.isJoined,
+      status: status ?? this.status,
+      visibility: visibility ?? this.visibility,
+      leaderId: leaderId ?? this.leaderId,
+      metadata: metadata ?? this.metadata,
+    );
+  }
+}
+
+class ClubMember {
+  final String id;
+  final String clubId;
+  final String userId;
+  final String role;
+  final String status;
+  final DateTime joinedAt;
+
+  ClubMember({
+    required this.id,
+    required this.clubId,
+    required this.userId,
+    required this.role,
+    required this.status,
+    required this.joinedAt,
+  });
+
+  factory ClubMember.fromJson(Map<String, dynamic> json) {
+    return ClubMember(
+      id: json['id'] ?? '',
+      clubId: json['club_id'] ?? '',
+      userId: json['user_id'] ?? '',
+      role: json['role'] ?? 'member',
+      status: json['status'] ?? 'pending',
+      joinedAt: DateTime.tryParse(json['joined_at'] ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+    );
+  }
+}
+
+class ClubPost {
+  final String id;
+  final String clubId;
+  final String? authorId;
+  final String? title;
+  final String content;
+  final VisibilityScope visibility;
+  final bool pinned;
+  final DateTime createdAt;
+  final List<dynamic> attachments;
+
+  ClubPost({
+    required this.id,
+    required this.clubId,
+    required this.content,
+    this.authorId,
+    this.title,
+    this.visibility = VisibilityScope.clubOnly,
+    this.pinned = false,
+    DateTime? createdAt,
+    this.attachments = const [],
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  factory ClubPost.fromJson(Map<String, dynamic> json) {
+    return ClubPost(
+      id: json['id'] ?? '',
+      clubId: json['club_id'] ?? '',
+      authorId: json['author_id']?.toString(),
+      title: json['title']?.toString(),
+      content: json['content'] ?? '',
+      visibility: parseVisibilityScope(json['visibility']?.toString()),
+      pinned: json['pinned'] ?? false,
+      createdAt: DateTime.tryParse(json['created_at'] ?? ''),
+      attachments: List<dynamic>.from(json['attachments'] ?? const []),
+    );
+  }
+}
+
+class ClubActivity {
+  final String id;
+  final String clubId;
+  final String? creatorId;
+  final String title;
+  final String? description;
+  final DateTime date;
+  final String? location;
+  final ApprovalStatus status;
+  final VisibilityScope visibility;
+
+  ClubActivity({
+    required this.id,
+    required this.clubId,
+    required this.title,
+    required this.date,
+    this.creatorId,
+    this.description,
+    this.location,
+    this.status = ApprovalStatus.pending,
+    this.visibility = VisibilityScope.clubOnly,
+  });
+
+  factory ClubActivity.fromJson(Map<String, dynamic> json) {
+    return ClubActivity(
+      id: json['id'] ?? '',
+      clubId: json['club_id'] ?? '',
+      creatorId: json['creator_id']?.toString(),
+      title: json['title'] ?? '',
+      description: json['description']?.toString(),
+      date: DateTime.tryParse(json['activity_date'] ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      location: json['location']?.toString(),
+      status: parseApprovalStatus(json['status']?.toString()),
+      visibility: parseVisibilityScope(json['visibility']?.toString()),
     );
   }
 }

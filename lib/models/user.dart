@@ -1,3 +1,32 @@
+enum UserRole { user, clubLeader, admin }
+
+extension UserRoleX on UserRole {
+  String get value {
+    switch (this) {
+      case UserRole.user:
+        return 'user';
+      case UserRole.clubLeader:
+        return 'club_leader';
+      case UserRole.admin:
+        return 'admin';
+    }
+  }
+
+  bool get isAdmin => this == UserRole.admin;
+  bool get isClubLeader => this == UserRole.clubLeader;
+}
+
+UserRole parseUserRole(String? raw) {
+  switch ((raw ?? 'user').toLowerCase()) {
+    case 'admin':
+      return UserRole.admin;
+    case 'club_leader':
+      return UserRole.clubLeader;
+    default:
+      return UserRole.user;
+  }
+}
+
 class User {
   final String id;
   final String name;
@@ -7,8 +36,11 @@ class User {
   final String email;
   final String phone;
   final String? avatar;
-  final List<String> interests;
   final int mutualFriends;
+  final UserRole role;
+  final String accountStatus;
+  final bool isLocked;
+  final Map<String, dynamic> metadata;
 
   const User({
     required this.id,
@@ -19,8 +51,11 @@ class User {
     required this.email,
     required this.phone,
     this.avatar,
-    this.interests = const [],
     this.mutualFriends = 0,
+    this.role = UserRole.user,
+    this.accountStatus = 'active',
+    this.isLocked = false,
+    this.metadata = const {},
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -33,8 +68,11 @@ class User {
       email: json['email'] ?? '',
       phone: json['phone'] ?? '',
       avatar: json['avatar_url'],
-      interests: List<String>.from(json['interests'] ?? []),
       mutualFriends: json['mutualFriends'] ?? 0,
+      role: parseUserRole(json['role']?.toString()),
+      accountStatus: json['account_status'] ?? 'active',
+      isLocked: json['is_locked'] ?? false,
+      metadata: Map<String, dynamic>.from(json['metadata'] ?? const {}),
     );
   }
 
@@ -48,7 +86,10 @@ class User {
       'email': email,
       'phone': phone,
       'avatar_url': avatar,
-      'interests': interests,
+      'role': role.value,
+      'account_status': accountStatus,
+      'is_locked': isLocked,
+      'metadata': metadata,
     };
   }
 
@@ -61,8 +102,11 @@ class User {
     String? email,
     String? phone,
     String? avatar,
-    List<String>? interests,
     int? mutualFriends,
+    UserRole? role,
+    String? accountStatus,
+    bool? isLocked,
+    Map<String, dynamic>? metadata,
   }) {
     return User(
       id: id ?? this.id,
@@ -73,8 +117,11 @@ class User {
       email: email ?? this.email,
       phone: phone ?? this.phone,
       avatar: avatar ?? this.avatar,
-      interests: interests ?? this.interests,
       mutualFriends: mutualFriends ?? this.mutualFriends,
+      role: role ?? this.role,
+      accountStatus: accountStatus ?? this.accountStatus,
+      isLocked: isLocked ?? this.isLocked,
+      metadata: metadata ?? this.metadata,
     );
   }
 }

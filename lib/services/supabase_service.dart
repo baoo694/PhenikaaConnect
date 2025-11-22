@@ -551,6 +551,7 @@ class SupabaseService {
             *,
             club_members(user_id)
           ''')
+          .eq('status', 'approved')
           .order('created_at', ascending: false);
       
       print('Raw clubs response from Supabase: $response');
@@ -683,6 +684,7 @@ class SupabaseService {
             users!events_organizer_id_fkey(name),
             event_attendees(user_id)
           ''')
+          .eq('status', 'approved')
           .order('event_date', ascending: true);
       
       print('Raw events response from Supabase: $response');
@@ -695,11 +697,13 @@ class SupabaseService {
         return Event(
           id: json['id'],
           title: json['title'],
+          description: json['description']?.toString(),
           date: _formatDate(json['event_date']),
           time: _formatTime(json['event_time']),
           location: json['location'],
           organizer: organizer?['name'] ?? '',
           attendees: attendees.length,
+          maxAttendees: json['max_attendees'] != null ? int.tryParse(json['max_attendees'].toString()) : null,
           category: json['category'],
           image: json['image_url'] ?? '',
           isJoined: isJoined,
@@ -732,11 +736,13 @@ class SupabaseService {
       return Event(
         id: response['id'],
         title: response['title'],
+        description: response['description']?.toString(),
         date: _formatDate(response['event_date']),
         time: _formatTime(response['event_time']),
         location: response['location'],
         organizer: organizer['name'] ?? '',
         attendees: 0,
+        maxAttendees: response['max_attendees'] != null ? int.tryParse(response['max_attendees'].toString()) : null,
         category: response['category'],
         image: response['image_url'] ?? '',
       );
@@ -952,19 +958,43 @@ class SupabaseService {
       final response = await _client
           .from('question_replies')
           .select('''
-            id, content, created_at, is_solution, user_id,
+            id, content, created_at, is_solution, user_id, parent_id,
             users!question_replies_user_id_fkey(name, avatar_url)
           ''')
           .eq('question_id', questionId)
           .order('created_at', ascending: true);
-      return response;
+      
+      // Separate top-level replies and nested replies
+      final topLevelReplies = <Map<String, dynamic>>[];
+      final repliesMap = <String, List<Map<String, dynamic>>>{};
+      
+      for (var reply in response) {
+        final parentId = reply['parent_id'];
+        if (parentId == null) {
+          topLevelReplies.add(reply);
+        } else {
+          final parentIdStr = parentId.toString();
+          if (!repliesMap.containsKey(parentIdStr)) {
+            repliesMap[parentIdStr] = [];
+          }
+          repliesMap[parentIdStr]!.add(reply);
+        }
+      }
+      
+      // Attach nested replies to their parent replies
+      for (var reply in topLevelReplies) {
+        final replyId = reply['id'].toString();
+        reply['replies'] = repliesMap[replyId] ?? [];
+      }
+      
+      return topLevelReplies;
     } catch (e) {
       print('Error getting question replies: $e');
       return [];
     }
   }
 
-  static Future<bool> createQuestionReply(String questionId, String content) async {
+  static Future<bool> createQuestionReply(String questionId, String content, {String? parentId}) async {
     try {
       final user = _client.auth.currentUser;
       if (user == null) return false;
@@ -973,6 +1003,7 @@ class SupabaseService {
         'question_id': questionId,
         'user_id': user.id,
         'content': content,
+        if (parentId != null) 'parent_id': parentId,
       });
 
       return true;

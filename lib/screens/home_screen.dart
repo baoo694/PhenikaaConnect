@@ -4,7 +4,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
 import '../widgets/common_widgets.dart';
-import '../models/chat.dart';
 import '../models/course.dart';
 import 'announcements_screen.dart';
 
@@ -167,9 +166,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   _buildBadge(context, scheduleText),
                   const SizedBox(width: 8),
-                  _buildBadge(
-                    context,
-                    '$announcementsCount thông báo mới',
+                  GestureDetector(
+                    onTap: announcementsCount > 0
+                        ? () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const AnnouncementsScreen(showUnreadOnly: true),
+                              ),
+                            );
+                          }
+                        : null,
+                    child: _buildBadge(
+                      context,
+                      '$announcementsCount thông báo mới',
+                    ),
                   ),
                 ],
               );

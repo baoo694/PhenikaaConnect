@@ -35,15 +35,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final appProvider = Provider.of<AppProvider>(context, listen: false);
-      final success = await appProvider.signIn(
+      final errorMessage = await appProvider.signIn(
         _emailController.text.trim(),
         _passwordController.text,
       );
 
-      if (success) {
-        // Load user data
-        await appProvider.loadCurrentUser();
-        await appProvider.initialize();
+      if (errorMessage == null) {
+        // Load all data after successful login
+        await appProvider.loadAllData();
 
         if (mounted) {
           Navigator.of(context).pushReplacement(
@@ -51,13 +50,54 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Đăng nhập thất bại. Vui lòng kiểm tra lại email và mật khẩu.'),
-              backgroundColor: Colors.red,
-            ),
-          );
+        // Check if account is locked/disabled
+        final currentUser = appProvider.currentUser;
+        if (currentUser != null && 
+            (currentUser.isLocked || currentUser.accountStatus == 'disabled')) {
+          // Show dialog for locked account
+          if (mounted) {
+            await showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => AlertDialog(
+                title: const Row(
+                  children: [
+                    Icon(
+                      LucideIcons.alertCircle,
+                      color: Colors.red,
+                      size: 24,
+                    ),
+                    SizedBox(width: 8),
+                    Text('Tài khoản bị khóa'),
+                  ],
+                ),
+                content: const Text(
+                  'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên để được hỗ trợ.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () async {
+                      Navigator.of(context).pop();
+                      // Sign out the locked account after user confirms
+                      await appProvider.signOut();
+                    },
+                    child: const Text('Xác nhận'),
+                  ),
+                ],
+              ),
+            );
+          }
+        } else {
+          // Show snackbar for other errors
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(errorMessage),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 5),
+              ),
+            );
+          }
         }
       }
     } catch (e) {

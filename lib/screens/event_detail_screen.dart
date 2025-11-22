@@ -179,6 +179,24 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     ],
                   ),
                   
+                  // Description
+                  if (_currentEvent.description != null && _currentEvent.description!.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      'Mô tả',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _currentEvent.description!,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                      ),
+                    ),
+                  ],
+                  
                   const SizedBox(height: 24),
                   
                   // Date & Time
@@ -246,6 +264,41 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       ),
                     ],
                   ),
+                  
+                  // Max Attendees
+                  if (_currentEvent.maxAttendees != null) ...[
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        const Icon(
+                          LucideIcons.users,
+                          size: 20,
+                          color: Colors.grey,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Số người tối đa',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${_currentEvent.maxAttendees} người',
+                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   
                   const SizedBox(height: 32),
                   

@@ -12,6 +12,8 @@ class AppProvider extends ChangeNotifier {
   // Current User
   app_models.User? _currentUser;
   app_models.User? get currentUser => _currentUser;
+  bool get isAdmin => _currentUser?.role == app_models.UserRole.admin;
+  bool get isClubLeader => _currentUser?.role == app_models.UserRole.clubLeader;
 
   // Posts
   List<Post> _posts = [];
@@ -40,7 +42,7 @@ class AppProvider extends ChangeNotifier {
   // Announcements
   List<Map<String, dynamic>> _announcements = [];
   List<Map<String, dynamic>> get announcements => _announcements;
-  
+
   // Read/unread announcement tracking (persisted locally)
   Set<String> _readAnnouncementIds = {};
   int get unreadAnnouncementsCount {
@@ -84,6 +86,7 @@ class AppProvider extends ChangeNotifier {
   bool get isCoursesLoading => _isCoursesLoading;
 
   RealtimeChannel? _questionRepliesChannel;
+  RealtimeChannel? _announcementsChannel;
 
   // Notification Settings
   List<Map<String, dynamic>> _notificationSettings = [
@@ -99,8 +102,24 @@ class AppProvider extends ChangeNotifier {
   Future<void> initialize() async {
     await loadCurrentUser();
     
-    // Test all tables first
-    await SupabaseService.testTables();
+    // Check if account is locked or disabled
+    if (_currentUser != null) {
+      if (_currentUser!.isLocked || _currentUser!.accountStatus == 'disabled') {
+        // Sign out the user if account is locked/disabled
+        await signOut();
+        return;
+      }
+      
+      // Only load data if user is logged in and account is active
+      await loadAllData();
+    }
+  }
+
+  // Load all data after user logs in
+  Future<void> loadAllData() async {
+    // Test all tables first (only in debug mode)
+    // Uncomment the line below for debugging/testing
+    // await SupabaseService.testTables();
     
     await loadPosts();
     await loadQuestions();
@@ -113,6 +132,7 @@ class AppProvider extends ChangeNotifier {
     await loadClassSchedule();
     await loadCourses();
     _subscribeToQuestionReplies();
+    _subscribeToAnnouncements();
   }
 
   // Load current user
@@ -387,8 +407,8 @@ class AppProvider extends ChangeNotifier {
     return false;
   }
 
-  Future<bool> createQuestionReply(String questionId, String content) async {
-    final success = await SupabaseService.createQuestionReply(questionId, content);
+  Future<bool> createQuestionReply(String questionId, String content, {String? parentId}) async {
+    final success = await SupabaseService.createQuestionReply(questionId, content, parentId: parentId);
     if (success) {
       await loadQuestions();
       return true;
@@ -491,6 +511,7 @@ class AppProvider extends ChangeNotifier {
     await loadClassSchedule();
     await loadCourses();
   }
+
 
   // Create event
   Future<bool> createEvent(Map<String, dynamic> eventData) async {
@@ -635,12 +656,23 @@ class AppProvider extends ChangeNotifier {
     return errorMessage;
   }
 
-  Future<bool> signIn(String email, String password) async {
+  Future<String?> signIn(String email, String password) async {
     final success = await SupabaseService.signIn(email, password);
-    if (success) {
-      await loadCurrentUser();
+    if (!success) {
+      return 'Đăng nhập thất bại. Vui lòng kiểm tra lại email và mật khẩu.';
     }
-    return success;
+    
+    await loadCurrentUser();
+    
+    // Check if account is locked or disabled
+    if (_currentUser != null) {
+      if (_currentUser!.isLocked || _currentUser!.accountStatus == 'disabled') {
+        // Don't sign out here - let the UI handle it after showing the message
+        return 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.';
+      }
+    }
+    
+    return null; // Success
   }
 
   Future<void> signOut() async {
@@ -670,10 +702,27 @@ class AppProvider extends ChangeNotifier {
       ..subscribe();
   }
 
+  void _subscribeToAnnouncements() {
+    if (_announcementsChannel != null) return;
+    _announcementsChannel = SupabaseConfig.client
+        .channel('public:announcements')
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.insert,
+        schema: 'public',
+        table: 'announcements',
+        callback: (payload) async {
+          await loadAnnouncements();
+        },
+      )
+      ..subscribe();
+  }
+
   @override
   void dispose() {
     _questionRepliesChannel?.unsubscribe();
     _questionRepliesChannel = null;
+    _announcementsChannel?.unsubscribe();
+    _announcementsChannel = null;
     super.dispose();
   }
 

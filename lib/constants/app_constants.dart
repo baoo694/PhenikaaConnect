@@ -26,7 +26,6 @@ class AppConstants {
     'year': 'Năm 3',
     'email': 'nguyenvanan@phenikaa.edu.vn',
     'phone': '0123456789',
-    'interests': ['Lập trình', 'AI', 'Gaming'],
     'mutualFriends': 12,
   };
 
