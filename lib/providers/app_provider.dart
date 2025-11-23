@@ -570,20 +570,9 @@ class AppProvider extends ChangeNotifier {
   Future<bool> joinClub(String clubId) async {
     final success = await SupabaseService.joinClub(clubId);
     if (success) {
-      // Update club immediately without reloading all clubs
-      final index = _clubs.indexWhere((c) => c['id'] == clubId);
-      if (index != -1) {
-        final currentMembers = _clubs[index]['members_count'] ?? 0;
-        _clubs[index] = {
-          ..._clubs[index],
-          'members_count': currentMembers + 1,
-          'isJoined': true,
-        };
-        notifyListeners();
-      } else {
-        // If not found, reload all clubs
-        await loadClubs();
-      }
+      // Reload để có dữ liệu mới nhất với isPending = true
+      await loadClubs();
+      notifyListeners();
       return true;
     }
     return false;
@@ -593,20 +582,17 @@ class AppProvider extends ChangeNotifier {
   Future<bool> leaveClub(String clubId) async {
     final success = await SupabaseService.leaveClub(clubId);
     if (success) {
-      // Update club immediately without reloading all clubs
-      final index = _clubs.indexWhere((c) => c['id'] == clubId);
-      if (index != -1) {
-        final currentMembers = _clubs[index]['members_count'] ?? 0;
-        _clubs[index] = {
-          ..._clubs[index],
-          'members_count': currentMembers > 0 ? currentMembers - 1 : 0,
-          'isJoined': false,
-        };
-        notifyListeners();
-      } else {
-        // If not found, reload all clubs
-        await loadClubs();
-      }
+      await loadClubs();
+      return true;
+    }
+    return false;
+  }
+
+  // Cancel join request
+  Future<bool> cancelJoinRequest(String clubId) async {
+    final success = await SupabaseService.cancelJoinRequest(clubId);
+    if (success) {
+      await loadClubs();
       return true;
     }
     return false;

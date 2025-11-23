@@ -20,11 +20,28 @@ class AdminEventDetailScreen extends StatefulWidget {
 class _AdminEventDetailScreenState extends State<AdminEventDetailScreen> {
   late Event _currentEvent;
   bool _isLoading = false;
+  String? _clubName;
 
   @override
   void initState() {
     super.initState();
     _currentEvent = widget.event;
+    _loadClubName();
+  }
+
+  Future<void> _loadClubName() async {
+    if (_currentEvent.clubId != null && _currentEvent.clubId!.isNotEmpty) {
+      try {
+        final clubDetails = await AdminService.fetchClubDetails(_currentEvent.clubId!);
+        if (clubDetails != null && mounted) {
+          setState(() {
+            _clubName = clubDetails['name'] as String?;
+          });
+        }
+      } catch (e) {
+        print('Error loading club name: $e');
+      }
+    }
   }
 
   Future<void> _deleteEvent() async {
@@ -413,7 +430,7 @@ class _AdminEventDetailScreenState extends State<AdminEventDetailScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      'ID: ${_currentEvent.clubId}',
+                                      _clubName ?? 'Đang tải...',
                                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                                             fontWeight: FontWeight.w600,
                                           ),

@@ -24,24 +24,25 @@ extension ApprovalStatusX on ApprovalStatus {
   }
 }
 
-enum VisibilityScope { public, campus, clubOnly }
+enum VisibilityScope { campus, clubOnly }
 
 VisibilityScope parseVisibilityScope(String? raw) {
-  switch ((raw ?? 'club_only').toLowerCase()) {
+  switch ((raw ?? 'campus').toLowerCase()) {
     case 'public':
-      return VisibilityScope.public;
+      // Backward compatibility: map old 'public' to 'campus'
+      return VisibilityScope.campus;
     case 'campus':
       return VisibilityScope.campus;
-    default:
+    case 'club_only':
       return VisibilityScope.clubOnly;
+    default:
+      return VisibilityScope.campus;
   }
 }
 
 extension VisibilityScopeX on VisibilityScope {
   String get value {
     switch (this) {
-      case VisibilityScope.public:
-        return 'public';
       case VisibilityScope.campus:
         return 'campus';
       case VisibilityScope.clubOnly:
@@ -64,6 +65,7 @@ class Event {
   final String image;
   final bool isJoined;
   final String? clubId;
+  final String? clubName; // Tên CLB nếu event do CLB tạo
   final ApprovalStatus status;
   final VisibilityScope visibility;
 
@@ -81,6 +83,7 @@ class Event {
     required this.image,
     this.isJoined = false,
     this.clubId,
+    this.clubName,
     this.status = ApprovalStatus.pending,
     this.visibility = VisibilityScope.campus,
   });
@@ -100,6 +103,7 @@ class Event {
       image: json['image'] ?? '',
       isJoined: json['isJoined'] ?? false,
       clubId: json['club_id']?.toString(),
+      clubName: json['clubName']?.toString() ?? (json['clubs'] != null && json['clubs'] is Map ? json['clubs']['name']?.toString() : null),
       status: parseApprovalStatus(json['status']?.toString()),
       visibility: parseVisibilityScope(json['visibility']?.toString()),
     );
@@ -120,6 +124,7 @@ class Event {
       'image': image,
       'isJoined': isJoined,
       'club_id': clubId,
+      'clubName': clubName,
       'status': status.value,
       'visibility': visibility.value,
     };
@@ -139,6 +144,7 @@ class Event {
     String? image,
     bool? isJoined,
     String? clubId,
+    String? clubName,
     ApprovalStatus? status,
     VisibilityScope? visibility,
   }) {
@@ -156,6 +162,7 @@ class Event {
       image: image ?? this.image,
       isJoined: isJoined ?? this.isJoined,
       clubId: clubId ?? this.clubId,
+      clubName: clubName ?? this.clubName,
       status: status ?? this.status,
       visibility: visibility ?? this.visibility,
     );
@@ -297,6 +304,7 @@ class ClubMember {
   final String role;
   final String status;
   final DateTime joinedAt;
+  final Map<String, dynamic>? userInfo; // Thông tin user từ join
 
   ClubMember({
     required this.id,
@@ -305,6 +313,7 @@ class ClubMember {
     required this.role,
     required this.status,
     required this.joinedAt,
+    this.userInfo,
   });
 
   factory ClubMember.fromJson(Map<String, dynamic> json) {
@@ -316,8 +325,17 @@ class ClubMember {
       status: json['status'] ?? 'pending',
       joinedAt: DateTime.tryParse(json['joined_at'] ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
+      userInfo: json['users'] != null 
+          ? Map<String, dynamic>.from(json['users'] is Map ? json['users'] : {})
+          : null,
     );
   }
+
+  String get userName => userInfo?['name'] ?? userId;
+  String get studentId => userInfo?['student_id'] ?? '';
+  String get major => userInfo?['major'] ?? '';
+  String get year => userInfo?['year'] ?? '';
+  String? get avatar => userInfo?['avatar_url'];
 }
 
 class ClubPost {

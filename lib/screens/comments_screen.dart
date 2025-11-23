@@ -18,7 +18,9 @@ class _CommentsScreenState extends State<CommentsScreen> {
   bool _loading = true;
   List<Map<String, dynamic>> _comments = [];
   String? _replyingToCommentId;
+  String? _editingCommentId;
   final Map<String, TextEditingController> _replyControllers = {};
+  final Map<String, TextEditingController> _editControllers = {};
   final Set<String> _expandedReplies = {};
 
   @override
@@ -33,7 +35,11 @@ class _CommentsScreenState extends State<CommentsScreen> {
     for (var controller in _replyControllers.values) {
       controller.dispose();
     }
+    for (var controller in _editControllers.values) {
+      controller.dispose();
+    }
     _replyControllers.clear();
+    _editControllers.clear();
     super.dispose();
   }
 
@@ -108,6 +114,70 @@ class _CommentsScreenState extends State<CommentsScreen> {
     }
   }
 
+  Future<void> _updateComment(String commentId, String content) async {
+    final success = await SupabaseService.updateComment(commentId, content);
+    if (success && mounted) {
+      setState(() {
+        _editingCommentId = null;
+      });
+      _editControllers.remove(commentId)?.dispose();
+      await _load();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã cập nhật bình luận'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Có lỗi xảy ra khi cập nhật bình luận'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteComment(String commentId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xác nhận'),
+        content: const Text('Bạn có chắc chắn muốn xóa bình luận này?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      final success = await SupabaseService.deleteComment(commentId);
+      if (success && mounted) {
+        await _load();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã xóa bình luận'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Có lỗi xảy ra khi xóa bình luận'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   String _formatTimeAgo(String? dateTimeString) {
     if (dateTimeString == null) return '';
     try {
@@ -129,9 +199,14 @@ class _CommentsScreenState extends State<CommentsScreen> {
     final replies = (comment['replies'] as List?) ?? [];
     final hasReplies = replies.isNotEmpty;
     final isExpanded = _expandedReplies.contains(commentId);
+    final isOwner = comment['isOwner'] == true;
+    final isEditing = _editingCommentId == commentId;
     
     if (!_replyControllers.containsKey(commentId)) {
       _replyControllers[commentId] = TextEditingController();
+    }
+    if (!_editControllers.containsKey(commentId)) {
+      _editControllers[commentId] = TextEditingController(text: comment['content'] ?? '');
     }
     
     return CustomCard(
@@ -168,38 +243,49 @@ class _CommentsScreenState extends State<CommentsScreen> {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text(comment['content'] ?? ''),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        TextButton(
-                          onPressed: () {
-                            setState(() {
-                              _replyingToCommentId = _replyingToCommentId == commentId ? null : commentId;
-                            });
-                          },
-                          style: TextButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    if (isEditing)
+                      TextField(
+                        controller: _editControllers[commentId],
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Text(
-                            _replyingToCommentId == commentId ? 'Hủy' : 'Trả lời',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
+                          isDense: true,
                         ),
-                        if (hasReplies) ...[
-                          const SizedBox(width: 16),
+                        maxLines: 3,
+                      )
+                    else
+                      Text(comment['content'] ?? ''),
+                    if (isEditing) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
                           TextButton(
                             onPressed: () {
                               setState(() {
-                                if (isExpanded) {
-                                  _expandedReplies.remove(commentId);
-                                } else {
-                                  _expandedReplies.add(commentId);
-                                }
+                                _editingCommentId = null;
+                              });
+                            },
+                            child: const Text('Hủy'),
+                          ),
+                          const SizedBox(width: 8),
+                          TextButton(
+                            onPressed: () => _updateComment(
+                              commentId,
+                              _editControllers[commentId]!.text,
+                            ),
+                            child: const Text('Lưu'),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _replyingToCommentId = _replyingToCommentId == commentId ? null : commentId;
                               });
                             },
                             style: TextButton.styleFrom(
@@ -208,15 +294,76 @@ class _CommentsScreenState extends State<CommentsScreen> {
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
                             child: Text(
-                              isExpanded ? 'Ẩn phản hồi' : 'Xem ${replies.length} phản hồi',
+                              _replyingToCommentId == commentId ? 'Hủy' : 'Trả lời',
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: Theme.of(context).colorScheme.primary,
                               ),
                             ),
                           ),
+                          if (isOwner) ...[
+                            const SizedBox(width: 16),
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _editingCommentId = commentId;
+                                });
+                              },
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: Text(
+                                'Sửa',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            TextButton(
+                              onPressed: () => _deleteComment(commentId),
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: Text(
+                                'Xóa',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Colors.red,
+                                ),
+                              ),
+                            ),
+                          ],
+                          if (hasReplies) ...[
+                            const SizedBox(width: 16),
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  if (isExpanded) {
+                                    _expandedReplies.remove(commentId);
+                                  } else {
+                                    _expandedReplies.add(commentId);
+                                  }
+                                });
+                              },
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: Text(
+                                isExpanded ? 'Ẩn phản hồi' : 'Xem ${replies.length} phản hồi',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
-                    ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -264,6 +411,14 @@ class _CommentsScreenState extends State<CommentsScreen> {
 
   Widget _buildReplyItem(Map<String, dynamic> reply) {
     final user = reply['users'];
+    final replyId = reply['id'].toString();
+    final isOwner = reply['isOwner'] == true;
+    final isEditing = _editingCommentId == replyId;
+    
+    if (!_editControllers.containsKey(replyId)) {
+      _editControllers[replyId] = TextEditingController(text: reply['content'] ?? '');
+    }
+    
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -294,7 +449,93 @@ class _CommentsScreenState extends State<CommentsScreen> {
                 ],
               ),
               const SizedBox(height: 4),
-              Text(reply['content'] ?? ''),
+              if (isEditing)
+                TextField(
+                  controller: _editControllers[replyId],
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    isDense: true,
+                  ),
+                  maxLines: 2,
+                )
+              else
+                Text(reply['content'] ?? ''),
+              if (isEditing) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _editingCommentId = null;
+                        });
+                      },
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text('Hủy', style: TextStyle(fontSize: 12)),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: () => _updateComment(
+                        replyId,
+                        _editControllers[replyId]!.text,
+                      ),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text('Lưu', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
+              ] else if (isOwner) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _editingCommentId = replyId;
+                        });
+                      },
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        'Sửa',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: () => _deleteComment(replyId),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        'Xóa',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.red,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),

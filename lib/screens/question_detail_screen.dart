@@ -27,7 +27,9 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
   bool _isOwner = false;
   RealtimeChannel? _repliesChannel;
   String? _replyingToReplyId;
+  String? _editingReplyId;
   final Map<String, TextEditingController> _replyControllers = {};
+  final Map<String, TextEditingController> _editControllers = {};
   final Set<String> _expandedReplies = {};
 
   @override
@@ -48,7 +50,11 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
     for (var controller in _replyControllers.values) {
       controller.dispose();
     }
+    for (var controller in _editControllers.values) {
+      controller.dispose();
+    }
     _replyControllers.clear();
+    _editControllers.clear();
     _repliesChannel?.unsubscribe();
     _repliesChannel = null;
     super.dispose();
@@ -145,6 +151,73 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
           backgroundColor: Colors.red,
         ),
       );
+    }
+  }
+
+  Future<void> _updateReply(String replyId) async {
+    final controller = _editControllers[replyId];
+    if (controller == null || controller.text.trim().isEmpty) return;
+    
+    final success = await SupabaseService.updateQuestionReply(replyId, controller.text.trim());
+    if (success && mounted) {
+      setState(() {
+        _editingReplyId = null;
+      });
+      _editControllers.remove(replyId)?.dispose();
+      await _loadReplies();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã cập nhật bình luận'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Có lỗi xảy ra khi cập nhật bình luận'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteReply(String replyId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xác nhận'),
+        content: const Text('Bạn có chắc chắn muốn xóa bình luận này?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      final success = await SupabaseService.deleteQuestionReply(replyId);
+      if (success && mounted) {
+        await _loadReplies();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã xóa bình luận'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Có lỗi xảy ra khi xóa bình luận'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -495,6 +568,8 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
     final hasReplies = replies.isNotEmpty;
     final isExpanded = _expandedReplies.contains(replyId);
     final bool isSolution = reply['is_solution'] == true;
+    final isOwner = reply['isOwner'] == true;
+    final isEditing = _editingReplyId == replyId;
     final replyOwnerId = reply['user_id']?.toString();
     final canMarkSolution = _isOwner &&
         !_isSolved &&
@@ -506,6 +581,9 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
 
     if (!_replyControllers.containsKey(replyId)) {
       _replyControllers[replyId] = TextEditingController();
+    }
+    if (!_editControllers.containsKey(replyId)) {
+      _editControllers[replyId] = TextEditingController(text: reply['content'] ?? '');
     }
 
     return Column(
@@ -538,51 +616,59 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
                     ),
                   ],
                   const SizedBox(height: 4),
-                  Text(
-                    reply['content'] ?? '',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text(
-                        _formatTime(reply['created_at']),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withOpacity(0.6),
-                            ),
-                      ),
-                      const SizedBox(width: 16),
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _replyingToReplyId = _replyingToReplyId == replyId ? null : replyId;
-                          });
-                        },
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  if (isEditing)
+                    TextField(
+                      controller: _editControllers[replyId],
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Text(
-                          _replyingToReplyId == replyId ? 'Hủy' : 'Trả lời',
+                        isDense: true,
+                      ),
+                      maxLines: 3,
+                    )
+                  else
+                    Text(
+                      reply['content'] ?? '',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  if (isEditing) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              _editingReplyId = null;
+                            });
+                          },
+                          child: const Text('Hủy'),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton(
+                          onPressed: () => _updateReply(replyId),
+                          child: const Text('Lưu'),
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Text(
+                          _formatTime(reply['created_at']),
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.primary,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withOpacity(0.6),
                               ),
                         ),
-                      ),
-                      if (hasReplies) ...[
                         const SizedBox(width: 16),
                         TextButton(
                           onPressed: () {
                             setState(() {
-                              if (isExpanded) {
-                                _expandedReplies.remove(replyId);
-                              } else {
-                                _expandedReplies.add(replyId);
-                              }
+                              _replyingToReplyId = _replyingToReplyId == replyId ? null : replyId;
                             });
                           },
                           style: TextButton.styleFrom(
@@ -591,15 +677,77 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
                           child: Text(
-                            isExpanded ? 'Ẩn phản hồi' : 'Xem ${replies.length} phản hồi',
+                            _replyingToReplyId == replyId ? 'Hủy' : 'Trả lời',
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                   color: Theme.of(context).colorScheme.primary,
                                 ),
                           ),
                         ),
+                        // Chỉ hiển thị sửa/xóa nếu là owner và không phải solution
+                        if (isOwner && !isSolution) ...[
+                          const SizedBox(width: 16),
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _editingReplyId = replyId;
+                              });
+                            },
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: Text(
+                              'Sửa',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          TextButton(
+                            onPressed: () => _deleteReply(replyId),
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: Text(
+                              'Xóa',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.red,
+                                  ),
+                            ),
+                          ),
+                        ],
+                        if (hasReplies) ...[
+                          const SizedBox(width: 16),
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                if (isExpanded) {
+                                  _expandedReplies.remove(replyId);
+                                } else {
+                                  _expandedReplies.add(replyId);
+                                }
+                              });
+                            },
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: Text(
+                              isExpanded ? 'Ẩn phản hồi' : 'Xem ${replies.length} phản hồi',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
-                  ),
+                    ),
+                  ],
                   if (canMarkSolution) ...[
                     const SizedBox(height: 8),
                     Align(

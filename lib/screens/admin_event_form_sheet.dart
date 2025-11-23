@@ -43,7 +43,6 @@ class _AdminEventFormSheetState extends State<AdminEventFormSheet> {
   ];
 
   final List<String> _visibilities = [
-    'public',
     'campus',
     'club_only',
   ];
@@ -119,8 +118,6 @@ class _AdminEventFormSheetState extends State<AdminEventFormSheet> {
 
   String _getVisibilityLabel(String visibility) {
     switch (visibility) {
-      case 'public':
-        return 'Công khai';
       case 'campus':
         return 'Nội bộ trường';
       case 'club_only':

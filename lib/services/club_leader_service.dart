@@ -18,7 +18,10 @@ class ClubLeaderService {
   static Future<List<ClubMember>> fetchMembers(String clubId, {String? status}) async {
     var query = _client
         .from('club_members')
-        .select('*')
+        .select('''
+          *,
+          users!club_members_user_id_fkey(id, name, student_id, major, year, email, avatar_url)
+        ''')
         .eq('club_id', clubId);
     if (status != null) {
       query = query.eq('status', status);
@@ -30,10 +33,31 @@ class ClubLeaderService {
   static Future<List<ClubPost>> fetchPosts(String clubId) async {
     final response = await _client
         .from('club_posts')
-        .select('*')
+        .select('''
+          *,
+          users!club_posts_author_id_fkey(id, name, avatar_url)
+        ''')
         .eq('club_id', clubId)
         .order('created_at', ascending: false);
     return response.map<ClubPost>((json) => ClubPost.fromJson(json)).toList();
+  }
+
+  // Fetch club posts for regular users (public view)
+  static Future<List<Map<String, dynamic>>> fetchClubPostsForUser(String clubId) async {
+    try {
+      final response = await _client
+          .from('club_posts')
+          .select('''
+            *,
+            users!club_posts_author_id_fkey(id, name, avatar_url)
+          ''')
+          .eq('club_id', clubId)
+          .order('created_at', ascending: false);
+      return response;
+    } catch (e) {
+      print('Error fetching club posts: $e');
+      return [];
+    }
   }
 
   static Future<List<ClubActivity>> fetchActivities(String clubId) async {
@@ -43,6 +67,296 @@ class ClubLeaderService {
         .eq('club_id', clubId)
         .order('activity_date', ascending: true);
     return response.map<ClubActivity>((json) => ClubActivity.fromJson(json)).toList();
+  }
+
+  // Fetch activity participants with user details
+  static Future<List<Map<String, dynamic>>> fetchActivityParticipants(String activityId) async {
+    try {
+      final response = await _client
+          .from('club_activity_participants')
+          .select('''
+            *,
+            users!club_activity_participants_user_id_fkey(id, name, student_id, major, year, avatar_url)
+          ''')
+          .eq('activity_id', activityId)
+          .order('joined_at', ascending: true);
+      
+      return response.map<Map<String, dynamic>>((participant) {
+        final user = participant['users'] as Map<String, dynamic>?;
+        return {
+          'id': participant['id'],
+          'user_id': participant['user_id'],
+          'joined_at': participant['joined_at'],
+          'user_name': user?['name'] ?? '',
+          'student_id': user?['student_id'] ?? '',
+          'major': user?['major'] ?? '',
+          'year': user?['year'] ?? '',
+          'avatar_url': user?['avatar_url'],
+        };
+      }).toList();
+    } catch (e) {
+      print('Error fetching activity participants: $e');
+      return [];
+    }
+  }
+
+  // Fetch club activities for regular users
+  static Future<List<Map<String, dynamic>>> fetchClubActivitiesForUser(String clubId) async {
+    try {
+      final user = _client.auth.currentUser;
+      final userId = user?.id;
+      
+      print('Fetching club activities for club: $clubId');
+      
+      // Fetch activities - chỉ lọc bỏ rejected, hiển thị approved và pending
+      // Vì activities của CLB là nội bộ, không cần strict filter như events
+      var response = await _client
+          .from('club_activities')
+          .select('*')
+          .eq('club_id', clubId)
+          .neq('status', 'rejected') // Chỉ loại bỏ rejected
+          .order('activity_date', ascending: true);
+      
+      print('Activities (approved + pending): ${response.length}');
+      
+      // Nếu không có, lấy tất cả (fallback cho activities cũ không có status)
+      if (response.isEmpty) {
+        print('No activities found with status filter, fetching all as fallback');
+        response = await _client
+            .from('club_activities')
+            .select('*')
+            .eq('club_id', clubId)
+            .order('activity_date', ascending: true);
+        print('Fallback: Found ${response.length} activities');
+      }
+      
+      // Fetch participants separately if table exists
+      final result = <Map<String, dynamic>>[];
+      for (var activity in response) {
+        bool isParticipating = false;
+        
+        // Try to fetch participants if table exists
+        try {
+          if (userId != null) {
+            final participants = await _client
+                .from('club_activity_participants')
+                .select('user_id')
+                .eq('activity_id', activity['id'])
+                .eq('user_id', userId)
+                .maybeSingle();
+            
+            isParticipating = participants != null;
+          }
+        } catch (e) {
+          // Table might not exist, ignore
+          print('Could not fetch participants (table might not exist): $e');
+        }
+        
+        result.add({
+          ...activity,
+          'isParticipating': isParticipating,
+        });
+      }
+      
+      print('Returning ${result.length} activities');
+      return result;
+    } catch (e) {
+      print('Error fetching club activities: $e');
+      return [];
+    }
+  }
+
+  // Join/leave activity
+  static Future<bool> toggleActivityParticipation(String activityId, bool join) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return false;
+
+      if (join) {
+        await _client
+            .from('club_activity_participants')
+            .insert({
+              'activity_id': activityId,
+              'user_id': user.id,
+            });
+      } else {
+        await _client
+            .from('club_activity_participants')
+            .delete()
+            .eq('activity_id', activityId)
+            .eq('user_id', user.id);
+      }
+      return true;
+    } catch (e) {
+      print('Error toggling activity participation: $e');
+      return false;
+    }
+  }
+
+  // Club post comments
+  // Note: Cần chạy migration SQL để tạo bảng club_post_comments
+  // Xem file: migrations/create_club_post_comments.sql
+  static Future<bool> createClubPostComment(String postId, String content, {String? parentId}) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return false;
+
+      await _client
+          .from('club_post_comments')
+          .insert({
+            'post_id': postId,
+            'user_id': user.id,
+            'content': content,
+            if (parentId != null) 'parent_id': parentId,
+          });
+      return true;
+    } catch (e) {
+      print('Error creating club post comment: $e');
+      print('Note: Bạn cần chạy migration SQL để tạo bảng club_post_comments');
+      print('Xem file: migrations/create_club_post_comments.sql');
+      return false;
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getClubPostComments(String postId) async {
+    try {
+      final user = _client.auth.currentUser;
+      final userId = user?.id;
+      
+      final response = await _client
+          .from('club_post_comments')
+          .select('''
+            id, content, created_at, parent_id, user_id,
+            users:users!club_post_comments_user_id_fkey(name, student_id, avatar_url)
+          ''')
+          .eq('post_id', postId)
+          .order('created_at', ascending: true);
+      
+      return _processComments(response, userId);
+    } catch (e) {
+      print('Error getting club post comments: $e');
+      print('Note: Bạn cần chạy migration SQL để tạo bảng club_post_comments');
+      return [];
+    }
+  }
+
+  static List<Map<String, dynamic>> _processComments(List<dynamic> response, String? userId) {
+    final topLevelComments = <Map<String, dynamic>>[];
+    final repliesMap = <String, List<Map<String, dynamic>>>{};
+    
+    for (var comment in response) {
+      // Extract user data
+      final user = comment['users'] as Map<String, dynamic>?;
+      comment['author_name'] = user?['name'] ?? 'Người dùng';
+      comment['student_id'] = user?['student_id'];
+      comment['avatar_url'] = user?['avatar_url'];
+      
+      comment['isOwner'] = userId != null && comment['user_id'] == userId;
+      final parentId = comment['parent_id'];
+      if (parentId == null) {
+        topLevelComments.add(comment);
+      } else {
+        final parentIdStr = parentId.toString();
+        if (!repliesMap.containsKey(parentIdStr)) {
+          repliesMap[parentIdStr] = [];
+        }
+        repliesMap[parentIdStr]!.add(comment);
+      }
+    }
+    
+    // Process replies as well
+    for (var replies in repliesMap.values) {
+      for (var reply in replies) {
+        final user = reply['users'] as Map<String, dynamic>?;
+        reply['author_name'] = user?['name'] ?? 'Người dùng';
+        reply['student_id'] = user?['student_id'];
+        reply['avatar_url'] = user?['avatar_url'];
+      }
+    }
+    
+    for (var comment in topLevelComments) {
+      final commentId = comment['id'].toString();
+      comment['replies'] = repliesMap[commentId] ?? [];
+    }
+    
+    return topLevelComments;
+  }
+
+  static Future<bool> updateClubPostComment(String commentId, String content) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return false;
+
+      await _client
+          .from('club_post_comments')
+          .update({'content': content})
+          .eq('id', commentId)
+          .eq('user_id', user.id);
+      return true;
+    } catch (e) {
+      print('Error updating club post comment: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> deleteClubPostComment(String commentId) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return false;
+
+      await _client
+          .from('club_post_comments')
+          .delete()
+          .eq('id', commentId)
+          .eq('user_id', user.id);
+      return true;
+    } catch (e) {
+      print('Error deleting club post comment: $e');
+      return false;
+    }
+  }
+
+  static Future<int> getClubPostCommentsCount(String postId) async {
+    try {
+      final allComments = await _client
+          .from('club_post_comments')
+          .select('id')
+          .eq('post_id', postId);
+      
+      return allComments.length;
+    } catch (e) {
+      print('Error getting club post comments count: $e');
+      return 0;
+    }
+  }
+
+  // Fetch event attendees with user details
+  static Future<List<Map<String, dynamic>>> fetchEventAttendees(String eventId) async {
+    try {
+      final response = await _client
+          .from('event_attendees')
+          .select('''
+            *,
+            users!event_attendees_user_id_fkey(id, name, student_id, major, year, avatar_url)
+          ''')
+          .eq('event_id', eventId);
+      
+      return response.map<Map<String, dynamic>>((attendee) {
+        final user = attendee['users'] as Map<String, dynamic>?;
+        return {
+          'id': attendee['id'],
+          'user_id': attendee['user_id'],
+          'user_name': user?['name'] ?? '',
+          'student_id': user?['student_id'] ?? '',
+          'major': user?['major'] ?? '',
+          'year': user?['year'] ?? '',
+          'avatar_url': user?['avatar_url'],
+        };
+      }).toList();
+    } catch (e) {
+      print('Error fetching event attendees: $e');
+      return [];
+    }
   }
 
   static Future<bool> createClub({
@@ -101,9 +415,11 @@ class ClubLeaderService {
         'description': description,
         'activity_date': date.toIso8601String(),
         if (location != null) 'location': location,
+        'status': 'approved', // Club leader tạo hoạt động tự động được duyệt
       });
       return true;
-    } catch (_) {
+    } catch (e) {
+      print('Error creating club activity: $e');
       return false;
     }
   }
@@ -130,13 +446,15 @@ class ClubLeaderService {
           .from('events')
           .select('''
             *,
-            users!events_organizer_id_fkey(name)
+            users!events_organizer_id_fkey(name),
+            event_attendees(user_id)
           ''')
           .eq('club_id', clubId)
           .order('event_date', ascending: true);
       
       return response.map<Event>((json) {
         final organizer = json['users'];
+        final attendees = json['event_attendees'] as List? ?? [];
         return Event(
           id: json['id'] ?? '',
           title: json['title'] ?? '',
@@ -145,7 +463,7 @@ class ClubLeaderService {
           time: json['event_time']?.toString() ?? '',
           location: json['location'] ?? '',
           organizer: organizer?['name'] ?? '',
-          attendees: json['attendees_count'] ?? 0,
+          attendees: attendees.length,
           maxAttendees: json['max_attendees'] != null ? int.tryParse(json['max_attendees'].toString()) : null,
           category: json['category'] ?? '',
           image: json['image_url'] ?? '',

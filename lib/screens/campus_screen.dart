@@ -749,6 +749,38 @@ class _CampusScreenState extends State<CampusScreen>
                       type: BadgeType.outline,
                       size: BadgeSize.small,
                     ),
+                    if (event.clubName != null && event.clubName!.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.purple.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.purple.shade200,
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              LucideIcons.users,
+                              size: 12,
+                              color: Colors.purple.shade700,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              event.clubName!,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Colors.purple.shade700,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     if (event.isJoined) ...[
                       const SizedBox(width: 8),
                       Container(
@@ -1048,6 +1080,7 @@ class _CampusScreenState extends State<CampusScreen>
                 'description': club['description'],
                 'active': club['active'],
                 'isJoined': club['isJoined'] ?? false,
+                'isPending': club['isPending'] ?? false,
               }),
             );
           }).toList(),
@@ -1103,6 +1136,37 @@ class _CampusScreenState extends State<CampusScreen>
                         'Đã tham gia',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Colors.green.shade700,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ] else if (club['isPending'] == true) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.orange.shade200,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        LucideIcons.clock,
+                        size: 12,
+                        color: Colors.orange.shade700,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Đang chờ duyệt',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.orange.shade700,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -1179,7 +1243,112 @@ class _CampusScreenState extends State<CampusScreen>
           const SizedBox(height: 16),
           Row(
             children: [
-              if (club['isJoined'] != true) ...[
+              if (club['isJoined'] == true) ...[
+                // Đã tham gia - hiển thị nút Rời CLB
+                Expanded(
+                  child: Consumer<AppProvider>(
+                    builder: (context, appProvider, child) {
+                      return CustomButton(
+                        text: 'Rời CLB',
+                        type: ButtonType.outline,
+                        size: ButtonSize.small,
+                        icon: LucideIcons.userMinus,
+                        onPressed: () async {
+                          if (club['id'] != null) {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Xác nhận'),
+                                content: const Text('Bạn có chắc chắn muốn rời CLB này?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, false),
+                                    child: const Text('Hủy'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, true),
+                                    child: const Text('Rời CLB', style: TextStyle(color: Colors.red)),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirm == true && context.mounted) {
+                              final success = await appProvider.leaveClub(club['id']);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      success
+                                          ? 'Đã rời CLB thành công'
+                                          : 'Có lỗi xảy ra khi rời CLB',
+                                    ),
+                                    backgroundColor:
+                                        success ? Colors.green : Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ] else if (club['isPending'] == true) ...[
+                // Đang chờ duyệt - hiển thị nút "Đang chờ duyệt" có thể bấm để hủy
+                Expanded(
+                  child: Consumer<AppProvider>(
+                    builder: (context, appProvider, child) {
+                      return CustomButton(
+                        text: 'Đang chờ duyệt',
+                        type: ButtonType.outline,
+                        size: ButtonSize.small,
+                        icon: LucideIcons.clock,
+                        onPressed: () async {
+                          if (club['id'] != null) {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Hủy yêu cầu'),
+                                content: const Text('Bạn có chắc chắn muốn hủy yêu cầu tham gia CLB này?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, false),
+                                    child: const Text('Không'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, true),
+                                    child: const Text('Hủy yêu cầu', style: TextStyle(color: Colors.red)),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirm == true && context.mounted) {
+                              final success = await appProvider.cancelJoinRequest(club['id']);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      success
+                                          ? 'Đã hủy yêu cầu tham gia CLB'
+                                          : 'Có lỗi xảy ra khi hủy yêu cầu',
+                                    ),
+                                    backgroundColor:
+                                        success ? Colors.green : Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ] else ...[
+                // Chưa tham gia - hiển thị nút Tham gia
                 Expanded(
                   child: Consumer<AppProvider>(
                     builder: (context, appProvider, child) {
@@ -1194,13 +1363,17 @@ class _CampusScreenState extends State<CampusScreen>
                                 SnackBar(
                                   content: Text(
                                     success
-                                        ? 'Đã tham gia CLB thành công!'
-                                        : 'Tham gia thất bại. Bạn có thể đã là thành viên.',
+                                        ? 'Đã gửi yêu cầu tham gia CLB. Đang chờ admin duyệt.'
+                                        : 'Tham gia thất bại. Bạn có thể đã là thành viên hoặc đã gửi yêu cầu.',
                                   ),
                                   backgroundColor:
-                                      success ? Colors.green : Colors.red,
+                                      success ? Colors.orange : Colors.red,
                                 ),
                               );
+                              // Force reload để cập nhật UI
+                              if (success) {
+                                await appProvider.loadClubs();
+                              }
                             }
                           }
                         },

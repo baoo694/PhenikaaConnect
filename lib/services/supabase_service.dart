@@ -499,10 +499,13 @@ class SupabaseService {
 
   static Future<List<Map<String, dynamic>>> getComments(String postId) async {
     try {
+      final user = _client.auth.currentUser;
+      final userId = user?.id;
+      
       final response = await _client
           .from('comments')
           .select('''
-            id, content, created_at, parent_id,
+            id, content, created_at, parent_id, user_id,
             users:users!comments_user_id_fkey(name, avatar_url)
           ''')
           .eq('post_id', postId)
@@ -513,6 +516,8 @@ class SupabaseService {
       final repliesMap = <String, List<Map<String, dynamic>>>{};
       
       for (var comment in response) {
+        // Add isOwner flag
+        comment['isOwner'] = userId != null && comment['user_id'] == userId;
         final parentId = comment['parent_id'];
         if (parentId == null) {
           topLevelComments.add(comment);
@@ -538,6 +543,40 @@ class SupabaseService {
     }
   }
 
+  static Future<bool> updateComment(String commentId, String content) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return false;
+
+      await _client
+          .from('comments')
+          .update({'content': content})
+          .eq('id', commentId)
+          .eq('user_id', user.id); // Only allow updating own comments
+      return true;
+    } catch (e) {
+      print('Error updating comment: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> deleteComment(String commentId) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return false;
+
+      await _client
+          .from('comments')
+          .delete()
+          .eq('id', commentId)
+          .eq('user_id', user.id); // Only allow deleting own comments
+      return true;
+    } catch (e) {
+      print('Error deleting comment: $e');
+      return false;
+    }
+  }
+
   // Club operations
   static Future<List<Map<String, dynamic>>> getClubs() async {
     try {
@@ -549,7 +588,7 @@ class SupabaseService {
           .from('clubs')
           .select('''
             *,
-            club_members(user_id)
+            club_members(user_id, status)
           ''')
           .eq('status', 'approved')
           .order('created_at', ascending: false);
@@ -557,14 +596,47 @@ class SupabaseService {
       print('Raw clubs response from Supabase: $response');
       
       // Add isJoined field to each club
+      // Chỉ set isJoined=true khi status='active', không phải 'pending'
       return response.map<Map<String, dynamic>>((club) {
         final members = club['club_members'] as List? ?? [];
-        final isJoined = userId != null && members.any((m) => m['user_id'] == userId);
-        final membersCount = members.length;
+        // Tìm membership của user hiện tại
+        Map<String, dynamic>? userMember;
+        if (userId != null && members.isNotEmpty) {
+          try {
+            final found = members.where((m) => m['user_id'] == userId).toList();
+            if (found.isNotEmpty) {
+              userMember = found.first as Map<String, dynamic>?;
+            }
+          } catch (e) {
+            print('Error finding user member: $e');
+            userMember = null;
+          }
+        }
+        
+        // Lấy status của user member (có thể là string hoặc dynamic)
+        final userStatus = userMember != null ? (userMember['status']?.toString() ?? '').toLowerCase() : '';
+        
+        // Chỉ tính là joined nếu status = 'active'
+        final isJoined = userStatus == 'active';
+        // Kiểm tra nếu có pending request
+        final isPending = userStatus == 'pending';
+        
+        // Debug log - chỉ log khi có membership
+        if (userId != null && userMember != null) {
+          print('Club ${club['name']} (${club['id']}): userStatus=$userStatus, isJoined=$isJoined, isPending=$isPending');
+        }
+        
+        // Chỉ đếm members có status = 'active'
+        final activeMembers = members.where((m) {
+          final status = (m['status']?.toString() ?? '').toLowerCase();
+          return status == 'active';
+        }).toList();
+        final membersCount = activeMembers.length;
         
         return {
           ...club,
           'isJoined': isJoined,
+          'isPending': isPending,
           'members_count': membersCount,
         };
       }).toList();
@@ -682,6 +754,7 @@ class SupabaseService {
           .select('''
             *,
             users!events_organizer_id_fkey(name),
+            clubs!events_club_id_fkey(id, name),
             event_attendees(user_id)
           ''')
           .eq('status', 'approved')
@@ -691,6 +764,7 @@ class SupabaseService {
       
       return response.map<Event>((json) {
         final organizer = json['users'];
+        final club = json['clubs'];
         final attendees = json['event_attendees'] as List;
         final isJoined = userId != null && attendees.any((a) => a['user_id'] == userId);
         
@@ -707,6 +781,10 @@ class SupabaseService {
           category: json['category'],
           image: json['image_url'] ?? '',
           isJoined: isJoined,
+          clubId: json['club_id']?.toString(),
+          clubName: club != null && club is Map ? club['name']?.toString() : null,
+          status: parseApprovalStatus(json['status']?.toString()),
+          visibility: parseVisibilityScope(json['visibility']?.toString()),
         );
       }).toList();
     } catch (e) {
@@ -795,7 +873,7 @@ class SupabaseService {
       final user = _client.auth.currentUser;
       if (user == null) return false;
       
-      // Check if already a member
+      // Check if already a member with active or pending status
       final existingMember = await _client
           .from('club_members')
           .select()
@@ -804,7 +882,20 @@ class SupabaseService {
           .maybeSingle();
       
       if (existingMember != null) {
-        return false; // Already a member
+        final status = (existingMember['status']?.toString() ?? '').toLowerCase();
+        // Nếu đã có membership với status active hoặc pending thì không cho join lại
+        if (status == 'active' || status == 'pending') {
+          print('User already has active or pending membership');
+          return false;
+        }
+        // Nếu status là removed hoặc rejected, xóa record cũ và tạo mới
+        if (status == 'removed' || status == 'rejected') {
+          await _client
+              .from('club_members')
+              .delete()
+              .eq('club_id', clubId)
+              .eq('user_id', user.id);
+        }
       }
       
       await _client
@@ -813,6 +904,7 @@ class SupabaseService {
             'club_id': clubId,
             'user_id': user.id,
             'role': 'member',
+            'status': 'pending', // Cần admin duyệt
           });
       
       return true;
@@ -836,6 +928,27 @@ class SupabaseService {
       return true;
     } catch (e) {
       print('Error leaving club: $e');
+      return false;
+    }
+  }
+
+  // Cancel join request (hủy yêu cầu tham gia khi status = pending)
+  static Future<bool> cancelJoinRequest(String clubId) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return false;
+      
+      // Xóa membership có status = pending
+      await _client
+          .from('club_members')
+          .delete()
+          .eq('club_id', clubId)
+          .eq('user_id', user.id)
+          .eq('status', 'pending');
+      
+      return true;
+    } catch (e) {
+      print('Error canceling join request: $e');
       return false;
     }
   }
@@ -955,6 +1068,9 @@ class SupabaseService {
 
   static Future<List<Map<String, dynamic>>> getQuestionReplies(String questionId) async {
     try {
+      final user = _client.auth.currentUser;
+      final userId = user?.id;
+      
       final response = await _client
           .from('question_replies')
           .select('''
@@ -969,6 +1085,8 @@ class SupabaseService {
       final repliesMap = <String, List<Map<String, dynamic>>>{};
       
       for (var reply in response) {
+        // Add isOwner flag
+        reply['isOwner'] = userId != null && reply['user_id'] == userId;
         final parentId = reply['parent_id'];
         if (parentId == null) {
           topLevelReplies.add(reply);
@@ -981,10 +1099,15 @@ class SupabaseService {
         }
       }
       
-      // Attach nested replies to their parent replies
+      // Attach nested replies to their parent replies and ensure isOwner flag
       for (var reply in topLevelReplies) {
         final replyId = reply['id'].toString();
-        reply['replies'] = repliesMap[replyId] ?? [];
+        final nestedReplies = repliesMap[replyId] ?? [];
+        // Ensure nested replies also have isOwner flag
+        for (var nested in nestedReplies) {
+          nested['isOwner'] = userId != null && nested['user_id'] == userId;
+        }
+        reply['replies'] = nestedReplies;
       }
       
       return topLevelReplies;
@@ -1036,6 +1159,40 @@ class SupabaseService {
       return true;
     } catch (e) {
       print('Error marking question solution: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> updateQuestionReply(String replyId, String content) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return false;
+
+      await _client
+          .from('question_replies')
+          .update({'content': content})
+          .eq('id', replyId)
+          .eq('user_id', user.id); // Only allow updating own replies
+      return true;
+    } catch (e) {
+      print('Error updating question reply: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> deleteQuestionReply(String replyId) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return false;
+
+      await _client
+          .from('question_replies')
+          .delete()
+          .eq('id', replyId)
+          .eq('user_id', user.id); // Only allow deleting own replies
+      return true;
+    } catch (e) {
+      print('Error deleting question reply: $e');
       return false;
     }
   }
