@@ -103,6 +103,10 @@ class _ClubLeaderPostsScreenState extends State<ClubLeaderPostsScreen> {
 
   Future<void> _showPostDetail(ClubPost post) async {
     final comments = await ClubLeaderService.getClubPostComments(post.id);
+    final totalComments = comments.fold<int>(
+      0,
+      (sum, comment) => sum + 1 + ((comment['replies'] as List?)?.length ?? 0),
+    );
     if (!mounted) return;
     
     showModalBottomSheet(
@@ -191,7 +195,7 @@ class _ClubLeaderPostsScreenState extends State<ClubLeaderPostsScreen> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'Bình luận (${comments.length})',
+                          'Bình luận ($totalComments)',
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -224,7 +228,9 @@ class _ClubLeaderPostsScreenState extends State<ClubLeaderPostsScreen> {
                         ),
                       )
                     else
-                      ...comments.map((comment) => Container(
+                      ...comments.map((comment) {
+                        final replies = (comment['replies'] as List?) ?? [];
+                        return Container(
                         margin: const EdgeInsets.only(bottom: 12),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -235,61 +241,132 @@ class _ClubLeaderPostsScreenState extends State<ClubLeaderPostsScreen> {
                             width: 1,
                           ),
                         ),
-                        child: Row(
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Avatar
-                            CircleAvatar(
-                              radius: 20,
-                              backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                              child: Text(
-                                (comment['author_name'] ?? 'N')[0].toUpperCase(),
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  fontWeight: FontWeight.bold,
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor:
+                                      Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                  child: Text(
+                                    (comment['author_name'] ?? 'N')[0].toUpperCase(),
+                                    style: TextStyle(
+                                      color: Theme.of(context).colorScheme.primary,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            // Comment content
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    comment['author_name'] ?? 'Người dùng',
-                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  if (comment['student_id'] != null && comment['student_id'].toString().isNotEmpty) ...[
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      'MSSV: ${comment['student_id']}',
-                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Colors.grey[600],
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        comment['author_name'] ?? 'Người dùng',
+                                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                       ),
-                                    ),
-                                  ],
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    comment['content'] ?? '',
-                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      height: 1.4,
-                                    ),
+                                      if (comment['student_id'] != null &&
+                                          comment['student_id'].toString().isNotEmpty) ...[
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'MSSV: ${comment['student_id']}',
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                color: Colors.grey[600],
+                                              ),
+                                        ),
+                                      ],
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        comment['content'] ?? '',
+                                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                              height: 1.4,
+                                            ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
+                            if (replies.isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              Column(
+                                children: replies
+                                    .map(
+                                      (reply) => _buildReplyTile(context, reply),
+                                    )
+                                    .toList(),
+                              ),
+                            ],
                           ],
                         ),
-                      )),
+                      );
+                      }),
                   ],
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildReplyTile(BuildContext context, Map<String, dynamic> reply) {
+    return Container(
+      margin: const EdgeInsets.only(left: 40, bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+            child: Text(
+              (reply['author_name'] ?? 'N')[0].toUpperCase(),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  reply['author_name'] ?? 'Người dùng',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                if (reply['student_id'] != null && reply['student_id'].toString().isNotEmpty)
+                  Text(
+                    'MSSV: ${reply['student_id']}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[600],
+                        ),
+                  ),
+                const SizedBox(height: 6),
+                Text(
+                  reply['content'] ?? '',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

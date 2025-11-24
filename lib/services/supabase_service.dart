@@ -706,6 +706,22 @@ class SupabaseService {
     }
   }
 
+  // Get all courses from the courses table (for question and study group forms)
+  static Future<List<Course>> getAllCourses() async {
+    try {
+      print('Fetching all courses from Supabase...');
+      final response = await _client
+          .from('courses')
+          .select('*')
+          .order('name', ascending: true);
+
+      return response.map<Course>((json) => Course.fromJson(json)).toList();
+    } catch (e) {
+      print('Error getting all courses: $e');
+      return [];
+    }
+  }
+
   static Future<List<ClassSchedule>> getClassSchedules({String? userId}) async {
     try {
       final effectiveUserId = userId ?? _client.auth.currentUser?.id;
@@ -784,7 +800,6 @@ class SupabaseService {
           clubId: json['club_id']?.toString(),
           clubName: club != null && club is Map ? club['name']?.toString() : null,
           status: parseApprovalStatus(json['status']?.toString()),
-          visibility: parseVisibilityScope(json['visibility']?.toString()),
         );
       }).toList();
     } catch (e) {

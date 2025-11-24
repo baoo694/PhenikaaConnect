@@ -951,7 +951,7 @@ class _AcademicScreenState extends State<AcademicScreen>
       }
     }
     final appProvider = Provider.of<AppProvider>(context, listen: false);
-    final courses = appProvider.courses;
+    final courses = appProvider.allCourses;
     final locations = appProvider.locations;
     final isEditing = editingGroup != null;
 

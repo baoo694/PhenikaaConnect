@@ -145,23 +145,17 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
           }
         }
 
-        // Map priority to category for filtering
         final announcementsWithCategory = appProvider.announcements.map((announcement) {
-          String category = 'Khác';
-          if (announcement['priority'] == 'high') {
-            category = 'Học tập';
-          } else if (announcement['target_audience'] == 'all') {
-            category = 'Sự kiện';
-          } else if (announcement['title'].toString().toLowerCase().contains('tuyển sinh')) {
-            category = 'Tuyển sinh';
-          }
-          
+          final rawCategory = (announcement['category'] ?? '').toString();
+          final category = rawCategory.isNotEmpty ? rawCategory : 'Khác';
+          final priority = (announcement['priority'] ?? 'normal').toString();
           final idStr = (announcement['id'] ?? '').toString();
           final isRead = appProvider.isAnnouncementRead(idStr);
           return {
             ...announcement,
             'category': category,
-            'important': announcement['priority'] == 'high',
+            'priority': priority,
+            'important': priority == 'high',
             'author': announcement['users']?['name'] ?? 'Hệ thống',
             'time': _formatTimeAgo(announcement['created_at']),
             'is_read': isRead,
@@ -239,8 +233,9 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
 
   Widget _buildAnnouncementCard(Map<String, dynamic> announcement) {
     final announcementId = (announcement['id'] ?? '').toString();
-    final isHighPriority =
-        announcement['important'] == true || announcement['priority'] == 'high';
+    final priority = (announcement['priority'] ?? 'normal').toString();
+    final isHighPriority = priority == 'high';
+    final priorityLabel = _getPriorityLabel(priority);
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       child: GestureDetector(
@@ -284,14 +279,14 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                     ),
                     const SizedBox(width: 8),
                     CustomBadge(
-                      text: isHighPriority ? 'Khẩn cấp' : 'Thông thường',
-                      type: isHighPriority ? BadgeType.error : BadgeType.outline,
+                      text: announcement['category'] ?? 'Khác',
+                      type: BadgeType.outline,
                       size: BadgeSize.small,
                     ),
                     const SizedBox(width: 8),
                     CustomBadge(
-                      text: announcement['category'] ?? 'Khác',
-                      type: BadgeType.outline,
+                      text: priorityLabel,
+                      type: _getPriorityBadgeType(priority),
                       size: BadgeSize.small,
                     ),
                   ],
@@ -339,6 +334,29 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
         ),
       ),
     );
+  }
+
+  String _getPriorityLabel(String? priority) {
+    switch ((priority ?? 'normal').toString()) {
+      case 'high':
+        return 'Khẩn cấp';
+      case 'low':
+        return 'Thấp';
+      case 'normal':
+      default:
+        return 'Thông thường';
+    }
+  }
+
+  BadgeType _getPriorityBadgeType(String? priority) {
+    switch ((priority ?? 'normal').toString()) {
+      case 'high':
+        return BadgeType.error;
+      case 'low':
+        return BadgeType.secondary;
+      default:
+        return BadgeType.outline;
+    }
   }
 
   void _navigateToDetail(BuildContext context, Map<String, dynamic> announcement) {

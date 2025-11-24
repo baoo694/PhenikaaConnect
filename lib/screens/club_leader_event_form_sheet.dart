@@ -165,7 +165,6 @@ class _ClubLeaderEventFormSheetState extends State<ClubLeaderEventFormSheet> {
         eventTime: _timeController.text,
         location: _selectedLocation!,
         category: _selectedCategory!,
-        visibility: VisibilityScope.campus,
         maxAttendees: _maxAttendeesController.text.isNotEmpty
             ? int.tryParse(_maxAttendeesController.text)
             : null,

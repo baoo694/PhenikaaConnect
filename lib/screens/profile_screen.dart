@@ -408,8 +408,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                   Row(
                     children: [
                       CustomAvatar(
-                        initials: appProvider.currentUser?.name ?? 'U'
+                        initials: (appProvider.currentUser?.name ?? 'U')
                             .split(' ')
+                            .where((part) => part.isNotEmpty)
                             .map((n) => n[0])
                             .join(''),
                         radius: 40,

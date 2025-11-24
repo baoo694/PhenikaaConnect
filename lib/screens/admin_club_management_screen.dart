@@ -91,53 +91,62 @@ class _AdminClubManagementScreenState extends State<AdminClubManagementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Quản lý Câu lạc bộ'),
-        actions: [
-          IconButton(
-            icon: const Icon(LucideIcons.plus),
-            tooltip: 'Thêm CLB mới',
-            onPressed: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const AdminClubFormSheet(),
-                ),
-              );
-              if (result == true) {
-                await _loadClubs();
-              }
-            },
-          ),
-        ],
+        toolbarHeight: 0,
+        elevation: 0,
       ),
       body: Column(
         children: [
           // Search bar
           Padding(
             padding: const EdgeInsets.all(16),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Tìm kiếm câu lạc bộ...',
-                prefixIcon: const Icon(LucideIcons.search),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          setState(() {
-                            _searchQuery = '';
-                          });
-                        },
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Tìm kiếm câu lạc bộ...',
+                      prefixIcon: const Icon(LucideIcons.search),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                setState(() {
+                                  _searchQuery = '';
+                                });
+                              },
+                            )
+                          : null,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value;
+                      });
+                    },
+                  ),
                 ),
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(LucideIcons.plus),
+                  onPressed: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AdminClubFormSheet(),
+                      ),
+                    );
+                    if (result == true) {
+                      await _loadClubs();
+                    }
+                  },
+                  style: IconButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
             ),
           ),
           // Clubs list

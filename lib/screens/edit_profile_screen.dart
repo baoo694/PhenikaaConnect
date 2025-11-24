@@ -270,6 +270,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   return null;
                 },
               ),
+              const SizedBox(height: 24),
+              CustomButton(
+                text: 'Lưu thay đổi',
+                icon: LucideIcons.save,
+                size: ButtonSize.large,
+                onPressed: _handleSave,
+              ),
             ],
           ),
         ),

@@ -1,3 +1,4 @@
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 import '../models/event.dart';
@@ -383,7 +384,6 @@ class ClubLeaderService {
     required String authorId,
     required String content,
     String? title,
-    VisibilityScope visibility = VisibilityScope.clubOnly,
   }) async {
     try {
       await _client.from('club_posts').insert({
@@ -391,7 +391,6 @@ class ClubLeaderService {
         'author_id': authorId,
         'content': content,
         if (title != null) 'title': title,
-        'visibility': visibility.value,
       });
       return true;
     } catch (_) {
@@ -408,12 +407,15 @@ class ClubLeaderService {
     String? location,
   }) async {
     try {
+      final dateString = DateFormat('yyyy-MM-dd').format(date);
+      final timeString = DateFormat('HH:mm').format(date);
       await _client.from('club_activities').insert({
         'club_id': clubId,
         'creator_id': creatorId,
         'title': title,
         'description': description,
-        'activity_date': date.toIso8601String(),
+        'activity_date': dateString,
+        'activity_time': timeString,
         if (location != null) 'location': location,
         'status': 'approved', // Club leader tạo hoạt động tự động được duyệt
       });
@@ -469,7 +471,6 @@ class ClubLeaderService {
           image: json['image_url'] ?? '',
           clubId: json['club_id']?.toString(),
           status: parseApprovalStatus(json['status']?.toString()),
-          visibility: parseVisibilityScope(json['visibility']?.toString()),
         );
       }).toList();
     } catch (e) {
@@ -489,7 +490,6 @@ class ClubLeaderService {
     required String category,
     String? imageUrl,
     int? maxAttendees,
-    VisibilityScope visibility = VisibilityScope.campus,
   }) async {
     try {
       await _client.from('events').insert({
@@ -503,7 +503,6 @@ class ClubLeaderService {
         'category': category,
         'image_url': imageUrl,
         'max_attendees': maxAttendees,
-        'visibility': visibility.value,
         'status': 'pending', // Club leader events need admin approval
       });
       return true;
@@ -522,10 +521,13 @@ class ClubLeaderService {
     String? location,
   }) async {
     try {
+      final dateString = DateFormat('yyyy-MM-dd').format(date);
+      final timeString = DateFormat('HH:mm').format(date);
       await _client.from('club_activities').update({
         'title': title,
         'description': description,
-        'activity_date': date.toIso8601String(),
+        'activity_date': dateString,
+        'activity_time': timeString,
         if (location != null) 'location': location,
       }).eq('id', activityId);
       return true;
@@ -549,7 +551,6 @@ class ClubLeaderService {
     required String postId,
     required String content,
     String? title,
-    VisibilityScope? visibility,
   }) async {
     try {
       final updateData = <String, dynamic>{
@@ -557,9 +558,6 @@ class ClubLeaderService {
       };
       if (title != null) {
         updateData['title'] = title;
-      }
-      if (visibility != null) {
-        updateData['visibility'] = visibility.value;
       }
       await _client.from('club_posts').update(updateData).eq('id', postId);
       return true;
@@ -589,7 +587,6 @@ class ClubLeaderService {
     required String category,
     String? imageUrl,
     int? maxAttendees,
-    VisibilityScope? visibility,
   }) async {
     try {
       final updateData = <String, dynamic>{
@@ -606,9 +603,6 @@ class ClubLeaderService {
       }
       if (maxAttendees != null) {
         updateData['max_attendees'] = maxAttendees;
-      }
-      if (visibility != null) {
-        updateData['visibility'] = visibility.value;
       }
       await _client.from('events').update(updateData).eq('id', eventId);
       return true;

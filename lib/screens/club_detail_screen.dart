@@ -90,11 +90,14 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> with SingleTickerPr
                 Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        _currentClub['name'] ?? 'Tên CLB',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      child: GestureDetector(
+                        onTap: _showClubInfoSheet,
+                        child: Text(
+                          _currentClub['name'] ?? 'Tên CLB',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
@@ -291,44 +294,115 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> with SingleTickerPr
             },
           ),
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(100),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    _currentClub['description'] ?? 'Chưa có mô tả',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withOpacity(0.9),
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
-              TabBar(
+        bottom: _isMember
+            ? TabBar(
                 controller: _tabController,
                 tabs: const [
                   Tab(text: 'Bài viết'),
                   Tab(text: 'Hoạt động'),
                 ],
+              )
+            : null,
+      ),
+      body: _isMember
+          ? TabBarView(
+              controller: _tabController,
+              children: [
+                _buildPostsTab(),
+                _buildActivitiesTab(),
+              ],
+            )
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: _buildClubOverviewContent(),
+            ),
+    );
+  }
+
+  void _showClubInfoSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  _currentClub['name'] ?? 'Tên CLB',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildInfoRow('Danh mục', _currentClub['category'] ?? 'Không xác định'),
+            const SizedBox(height: 8),
+            _buildInfoRow(
+              'Thành viên',
+              '${_currentClub['members'] ?? _currentClub['members_count'] ?? 0}',
+            ),
+            const SizedBox(height: 8),
+            _buildInfoRow(
+              'Trạng thái',
+              (_currentClub['active'] ?? true) ? 'Đang hoạt động' : 'Tạm dừng',
+            ),
+            if ((_currentClub['description'] ?? '').toString().isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text(
+                'Mô tả',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _currentClub['description'],
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],
-          ),
+          ],
         ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildPostsTab(),
-          _buildActivitiesTab(),
-        ],
       ),
     );
   }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 120,
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.grey[600],
+                ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  bool get _isMember => _currentClub['isJoined'] == true;
 
   Widget _buildPostsTab() {
     if (_isLoadingPosts) {
@@ -579,6 +653,91 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> with SingleTickerPr
         itemBuilder: (context, index) {
           return _buildActivityCard(_activities[index]);
         },
+      ),
+    );
+  }
+
+  Widget _buildClubOverviewContent() {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                LucideIcons.info,
+                size: 32,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Thông tin chung',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _buildInfoRow('Tên CLB', _currentClub['name'] ?? 'Chưa cập nhật'),
+          const SizedBox(height: 12),
+          _buildInfoRow('Danh mục', _currentClub['category'] ?? 'Không xác định'),
+          const SizedBox(height: 12),
+          _buildInfoRow(
+            'Thành viên',
+            '${_currentClub['members'] ?? _currentClub['members_count'] ?? 0}',
+          ),
+          const SizedBox(height: 12),
+          _buildInfoRow(
+            'Trạng thái',
+            (_currentClub['active'] ?? true) ? 'Đang hoạt động' : 'Tạm dừng',
+          ),
+          if ((_currentClub['description'] ?? '').toString().isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(
+              'Mô tả',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _currentClub['description'],
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+          ],
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Tham gia CLB',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Bạn cần trở thành thành viên để xem bài viết và hoạt động nội bộ. Bấm nút “Tham gia” ở góc trên để gửi yêu cầu.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey[700],
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

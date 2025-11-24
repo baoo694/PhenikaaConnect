@@ -728,81 +728,85 @@ class _ClubLeaderWorkspaceScreenState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (_state.posts.isNotEmpty) ...[
-                      Row(
-                        children: [
-                          Icon(
-                            LucideIcons.fileText,
-                            color: Colors.blue,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Bài viết (${_state.posts.length})',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
-                        ],
+                if (_state.posts.isNotEmpty) ...[
+                  Row(
+                    children: [
+                      Icon(
+                        LucideIcons.fileText,
+                        color: Colors.blue,
+                        size: 20,
                       ),
-                      const SizedBox(height: 16),
-                      ..._state.posts.map((post) => Container(
-                            margin: const EdgeInsets.only(bottom: 16),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.05),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: Colors.blue.withOpacity(0.2),
-                                width: 1.5,
-                              ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Bài viết (${_state.posts.length})',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
                             ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Icon(
-                                    LucideIcons.fileText,
-                                    color: Colors.blue,
-                                    size: 24,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      if (post.title != null) ...[
-                                        Text(
-                                          post.title!,
-                                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                                fontWeight: FontWeight.w600,
-                                                color: Colors.blue[900],
-                                              ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                      ],
-                                      Text(
-                                        post.content,
-                                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                              height: 1.5,
-                                            ),
-                                        maxLines: 4,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )),
-                      const SizedBox(height: 32),
+                      ),
                     ],
+                  ),
+                  const SizedBox(height: 16),
+                  ..._state.posts.map((post) => InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () => _handleRecentPostTap(post),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.blue.withOpacity(0.2),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  LucideIcons.fileText,
+                                  color: Colors.blue,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (post.title != null) ...[
+                                      Text(
+                                        post.title!,
+                                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.blue[900],
+                                            ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                    ],
+                                    Text(
+                                      post.content,
+                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                            height: 1.5,
+                                          ),
+                                      maxLines: 4,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )),
+                  const SizedBox(height: 32),
+                ],
                     if (_state.events.isNotEmpty) ...[
                       Row(
                         children: [
@@ -821,105 +825,109 @@ class _ClubLeaderWorkspaceScreenState
                         ],
                       ),
                       const SizedBox(height: 16),
-                      ..._state.events.map((event) => Container(
-                            margin: const EdgeInsets.only(bottom: 16),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.withOpacity(0.05),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: Colors.orange.withOpacity(0.2),
-                                width: 1.5,
-                              ),
+                  ..._state.events.map((event) => InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () => _handleRecentEventTap(event),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.orange.withOpacity(0.2),
+                              width: 1.5,
                             ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.orange.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Icon(
-                                    LucideIcons.calendar,
-                                    color: Colors.orange,
-                                    size: 24,
-                                  ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        event.title,
-                                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.orange[900],
-                                            ),
-                                      ),
-                                      const SizedBox(height: 8),
+                                child: Icon(
+                                  LucideIcons.calendar,
+                                  color: Colors.orange,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      event.title,
+                                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.orange[900],
+                                          ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          LucideIcons.calendar,
+                                          size: 14,
+                                          color: Colors.orange[700],
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          event.date,
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                color: Colors.orange[700],
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Icon(
+                                          LucideIcons.clock,
+                                          size: 14,
+                                          color: Colors.orange[700],
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          event.time,
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                color: Colors.orange[700],
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                    if (event.location.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
                                       Row(
                                         children: [
                                           Icon(
-                                            LucideIcons.calendar,
+                                            LucideIcons.mapPin,
                                             size: 14,
                                             color: Colors.orange[700],
                                           ),
                                           const SizedBox(width: 4),
-                                          Text(
-                                            event.date,
-                                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                  color: Colors.orange[700],
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Icon(
-                                            LucideIcons.clock,
-                                            size: 14,
-                                            color: Colors.orange[700],
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            event.time,
-                                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                  color: Colors.orange[700],
-                                                  fontWeight: FontWeight.w500,
-                                                ),
+                                          Expanded(
+                                            child: Text(
+                                              event.location,
+                                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                    color: Colors.orange[700],
+                                                  ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
                                           ),
                                         ],
                                       ),
-                                      if (event.location.isNotEmpty) ...[
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              LucideIcons.mapPin,
-                                              size: 14,
-                                              color: Colors.orange[700],
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Expanded(
-                                              child: Text(
-                                                event.location,
-                                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                      color: Colors.orange[700],
-                                                    ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
                                     ],
-                                  ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          )),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )),
                       const SizedBox(height: 32),
                     ],
                     if (_state.activities.isNotEmpty) ...[
@@ -940,98 +948,105 @@ class _ClubLeaderWorkspaceScreenState
                         ],
                       ),
                       const SizedBox(height: 16),
-                      ..._state.activities.map((activity) => Container(
-                            margin: const EdgeInsets.only(bottom: 16),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.purple.withOpacity(0.05),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: Colors.purple.withOpacity(0.2),
-                                width: 1.5,
-                              ),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.purple.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Icon(
-                                    LucideIcons.activity,
-                                    color: Colors.purple,
-                                    size: 24,
-                                  ),
+                      ..._state.activities.map((activity) => InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () => _handleRecentActivityTap(activity),
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.purple.withOpacity(0.05),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Colors.purple.withOpacity(0.2),
+                                  width: 1.5,
                                 ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        activity.title,
-                                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.purple[900],
-                                            ),
-                                      ),
-                                      if (activity.description != null && activity.description!.isNotEmpty) ...[
-                                        const SizedBox(height: 8),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: Colors.purple.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Icon(
+                                      LucideIcons.activity,
+                                      color: Colors.purple,
+                                      size: 24,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
                                         Text(
-                                          activity.description!,
-                                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                                height: 1.5,
+                                          activity.title,
+                                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.purple[900],
                                               ),
-                                          maxLines: 4,
-                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                      ],
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            LucideIcons.calendar,
-                                            size: 14,
-                                            color: Colors.purple[700],
-                                          ),
-                                          const SizedBox(width: 4),
+                                        if (activity.description != null &&
+                                            activity.description!.isNotEmpty) ...[
+                                          const SizedBox(height: 8),
                                           Text(
-                                            '${activity.date.day}/${activity.date.month}/${activity.date.year}',
-                                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                  color: Colors.purple[700],
-                                                  fontWeight: FontWeight.w500,
+                                            activity.description!,
+                                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                                  height: 1.5,
                                                 ),
+                                            maxLines: 4,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                          if (activity.location != null && activity.location!.isNotEmpty) ...[
-                                            const SizedBox(width: 12),
+                                        ],
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          children: [
                                             Icon(
-                                              LucideIcons.mapPin,
+                                              LucideIcons.calendar,
                                               size: 14,
                                               color: Colors.purple[700],
                                             ),
                                             const SizedBox(width: 4),
-                                            Expanded(
-                                              child: Text(
-                                                activity.location!,
-                                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                      color: Colors.purple[700],
-                                                    ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
+                                            Text(
+                                              '${activity.date.day}/${activity.date.month}/${activity.date.year}',
+                                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                    color: Colors.purple[700],
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
                                             ),
+                                            if (activity.location != null &&
+                                                activity.location!.isNotEmpty) ...[
+                                              const SizedBox(width: 12),
+                                              Icon(
+                                                LucideIcons.mapPin,
+                                                size: 14,
+                                                color: Colors.purple[700],
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Expanded(
+                                                child: Text(
+                                                  activity.location!,
+                                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                        color: Colors.purple[700],
+                                                      ),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
                                           ],
-                                        ],
-                                      ),
-                                    ],
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           )),
+                      const SizedBox(height: 32),
                     ],
                     if (_state.posts.isEmpty && _state.events.isEmpty && _state.activities.isEmpty)
                       Center(
@@ -1070,6 +1085,566 @@ class _ClubLeaderWorkspaceScreenState
           ],
         ),
       ),
+    );
+  }
+
+  void _handleRecentPostTap(ClubPost post) {
+    Navigator.of(context).pop();
+    Future.microtask(() => _showRecentPostDetail(post));
+  }
+
+  void _handleRecentEventTap(Event event) {
+    Navigator.of(context).pop();
+    Future.microtask(() => _showRecentEventDetail(event));
+  }
+
+  void _handleRecentActivityTap(ClubActivity activity) {
+    Navigator.of(context).pop();
+    Future.microtask(() => _showRecentActivityDetail(activity));
+  }
+
+  Future<void> _showRecentPostDetail(ClubPost post) async {
+    final comments = await ClubLeaderService.getClubPostComments(post.id);
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  Text(
+                    'Chi tiết bài viết',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: scrollController,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CustomCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (post.title != null && post.title!.isNotEmpty) ...[
+                            Text(
+                              post.title!,
+                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                          Text(
+                            post.content,
+                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.5),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Icon(
+                          LucideIcons.messageCircle,
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Bình luận (${comments.length})',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    if (comments.isEmpty)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 32),
+                          child: Column(
+                            children: [
+                              Icon(
+                                LucideIcons.messageCircle,
+                                size: 48,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Chưa có bình luận nào',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: comments.length,
+                        itemBuilder: (context, index) {
+                          final comment = comments[index];
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.grey[200]!,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 18,
+                                      backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                      child: Text(
+                                        (comment['author_name'] ?? 'N')[0].toUpperCase(),
+                                        style: TextStyle(
+                                          color: Theme.of(context).colorScheme.primary,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            comment['author_name'] ?? 'Người dùng',
+                                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                          ),
+                                          if (comment['student_id'] != null &&
+                                              comment['student_id'].toString().isNotEmpty)
+                                            Text(
+                                              'MSSV: ${comment['student_id']}',
+                                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                    color: Colors.grey[600],
+                                                  ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  comment['content'] ?? '',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showRecentEventDetail(Event event) async {
+    final attendees = await ClubLeaderService.fetchEventAttendees(event.id);
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.8,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  Text(
+                    'Chi tiết sự kiện',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: scrollController,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CustomCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            event.title,
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                          const SizedBox(height: 12),
+                          _buildDetailRow('Ngày', event.date, LucideIcons.calendar),
+                          const SizedBox(height: 8),
+                          _buildDetailRow('Giờ', event.time, LucideIcons.clock),
+                          const SizedBox(height: 8),
+                          if (event.location.isNotEmpty)
+                            _buildDetailRow('Địa điểm', event.location, LucideIcons.mapPin),
+                          if (event.description != null && event.description!.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              'Mô tả',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              event.description!,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Icon(
+                          LucideIcons.users,
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Người tham gia (${attendees.length})',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    if (attendees.isEmpty)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 32),
+                          child: Column(
+                            children: [
+                              Icon(
+                                LucideIcons.users,
+                                size: 48,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Chưa có người tham gia',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: attendees.length,
+                        itemBuilder: (context, index) {
+                          final attendee = attendees[index];
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.orange.withOpacity(0.2)),
+                            ),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                  child: Text(
+                                    (attendee['user_name']?.toString()[0] ?? 'U').toUpperCase(),
+                                    style: TextStyle(
+                                      color: Theme.of(context).colorScheme.primary,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        attendee['user_name'] ?? 'Người dùng',
+                                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
+                                      if (attendee['student_id'] != null &&
+                                          attendee['student_id'].toString().isNotEmpty)
+                                        Text(
+                                          'MSSV: ${attendee['student_id']}',
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                color: Colors.grey[600],
+                                              ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showRecentActivityDetail(ClubActivity activity) async {
+    final participants = await ClubLeaderService.fetchActivityParticipants(activity.id);
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.8,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  Text(
+                    'Chi tiết hoạt động',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: scrollController,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CustomCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            activity.title,
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                          const SizedBox(height: 12),
+                          if (activity.description != null && activity.description!.isNotEmpty) ...[
+                            Text(
+                              activity.description!,
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.5),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                          _buildDetailRow(
+                            'Ngày',
+                            '${activity.date.day}/${activity.date.month}/${activity.date.year}',
+                            LucideIcons.calendar,
+                          ),
+                          const SizedBox(height: 8),
+                          if (activity.location != null && activity.location!.isNotEmpty)
+                            _buildDetailRow('Địa điểm', activity.location!, LucideIcons.mapPin),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Icon(
+                          LucideIcons.users,
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Người tham gia (${participants.length})',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    if (participants.isEmpty)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 32),
+                          child: Column(
+                            children: [
+                              Icon(
+                                LucideIcons.users,
+                                size: 48,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Chưa có người tham gia',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: participants.length,
+                        itemBuilder: (context, index) {
+                          final participant = participants[index];
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.purple.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.purple.withOpacity(0.2)),
+                            ),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                  child: Text(
+                                    (participant['user_name']?.toString()[0] ?? 'U').toUpperCase(),
+                                    style: TextStyle(
+                                      color: Theme.of(context).colorScheme.primary,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        participant['user_name'] ?? 'Người dùng',
+                                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
+                                      if (participant['student_id'] != null &&
+                                          participant['student_id'].toString().isNotEmpty)
+                                        Text(
+                                          'MSSV: ${participant['student_id']}',
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                color: Colors.grey[600],
+                                              ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.grey[600]),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+      ],
     );
   }
 

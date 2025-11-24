@@ -47,6 +47,50 @@ class _ClubLeaderMembersScreenState extends State<ClubLeaderMembersScreen> {
     }
   }
 
+  Future<void> _removeMember(ClubMember member) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xóa thành viên'),
+        content: Text('Bạn có chắc chắn muốn xóa "${member.userName}" khỏi CLB?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final success = await ClubLeaderService.updateMemberStatus(
+        membershipId: member.id,
+        status: 'removed',
+      );
+      if (success && mounted) {
+        await _loadMembers();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đã xóa ${member.userName} khỏi CLB'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không thể xóa thành viên, vui lòng thử lại'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   void _showMemberDetail(ClubMember member) {
     showModalBottomSheet(
       context: context,
@@ -367,6 +411,7 @@ class _ClubLeaderMembersScreenState extends State<ClubLeaderMembersScreen> {
   }
 
   Widget _buildMemberCard(ClubMember member) {
+    final canRemove = member.role.toLowerCase() != 'leader';
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -432,6 +477,14 @@ class _ClubLeaderMembersScreenState extends State<ClubLeaderMembersScreen> {
                 ],
               ),
             ),
+            if (canRemove) ...[
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(LucideIcons.userMinus, color: Colors.red),
+                tooltip: 'Xóa khỏi CLB',
+                onPressed: () => _removeMember(member),
+              ),
+            ],
           ],
         ),
       ),

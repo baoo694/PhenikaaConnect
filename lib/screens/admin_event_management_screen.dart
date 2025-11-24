@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../models/event.dart';
 import '../services/admin_service.dart';
+import '../services/club_leader_service.dart';
 import '../widgets/common_widgets.dart';
 import 'admin_event_form_sheet.dart';
 import 'admin_event_detail_screen.dart';
@@ -239,6 +240,20 @@ class _AdminEventManagementScreenState extends State<AdminEventManagementScreen>
                 ),
                 PopupMenuButton(
                   itemBuilder: (context) => [
+                      PopupMenuItem(
+                        child: const Row(
+                          children: [
+                            Icon(LucideIcons.users, size: 16),
+                            SizedBox(width: 8),
+                            Text('Người tham gia'),
+                          ],
+                        ),
+                        onTap: () {
+                          Future.delayed(const Duration(milliseconds: 100), () {
+                            _showEventParticipants(event);
+                          });
+                        },
+                      ),
                     PopupMenuItem(
                       child: const Row(
                         children: [
@@ -279,6 +294,125 @@ class _AdminEventManagementScreenState extends State<AdminEventManagementScreen>
                   ],
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showEventParticipants(Event event) async {
+    final participants = await ClubLeaderService.fetchEventAttendees(event.id);
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Text(
+                    'Người tham gia',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${participants.length} người',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: participants.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(LucideIcons.users, size: 48, color: Colors.grey[400]),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Chưa có người tham gia',
+                            style: TextStyle(color: Colors.grey[600]),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      controller: scrollController,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: participants.length,
+                      itemBuilder: (context, index) {
+                        final attendee = participants[index];
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 20,
+                                backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                child: Text(
+                                  (attendee['user_name']?.toString()[0] ?? 'U').toUpperCase(),
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.primary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      attendee['user_name'] ?? 'Người dùng',
+                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                    if (attendee['student_id'] != null &&
+                                        attendee['student_id'].toString().isNotEmpty)
+                                      Text(
+                                        'MSSV: ${attendee['student_id']}',
+                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                              color: Colors.grey[600],
+                                            ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
             ),
           ],
         ),

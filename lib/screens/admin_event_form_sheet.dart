@@ -24,7 +24,6 @@ class _AdminEventFormSheetState extends State<AdminEventFormSheet> {
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   String? _selectedCategory;
-  String? _selectedVisibility;
   String? _selectedLocation;
   List<Map<String, dynamic>> _locations = [];
   bool _isLoading = false;
@@ -42,11 +41,6 @@ class _AdminEventFormSheetState extends State<AdminEventFormSheet> {
     'Khác',
   ];
 
-  final List<String> _visibilities = [
-    'campus',
-    'club_only',
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -57,7 +51,6 @@ class _AdminEventFormSheetState extends State<AdminEventFormSheet> {
       _selectedLocation = widget.event!.location;
       _maxAttendeesController.text = widget.event!.maxAttendees != null ? widget.event!.maxAttendees.toString() : '';
       _selectedCategory = widget.event!.category;
-      _selectedVisibility = widget.event!.visibility.value;
       try {
         _selectedDate = DateFormat('yyyy-MM-dd').parse(widget.event!.date);
         final timeParts = widget.event!.time.split(':');
@@ -116,17 +109,6 @@ class _AdminEventFormSheetState extends State<AdminEventFormSheet> {
     }
   }
 
-  String _getVisibilityLabel(String visibility) {
-    switch (visibility) {
-      case 'campus':
-        return 'Nội bộ trường';
-      case 'club_only':
-        return 'Chỉ CLB';
-      default:
-        return visibility;
-    }
-  }
-
   Future<void> _submitEvent() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedDate == null || _selectedTime == null) {
@@ -138,7 +120,7 @@ class _AdminEventFormSheetState extends State<AdminEventFormSheet> {
       );
       return;
     }
-    if (_selectedCategory == null || _selectedVisibility == null) {
+    if (_selectedCategory == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Vui lòng chọn đầy đủ thông tin'),
@@ -157,7 +139,6 @@ class _AdminEventFormSheetState extends State<AdminEventFormSheet> {
       'event_time': '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}:00',
       'location': _selectedLocation ?? '',
       'category': _selectedCategory!,
-      'visibility': _selectedVisibility!,
       'max_attendees': _maxAttendeesController.text.isNotEmpty
           ? int.tryParse(_maxAttendeesController.text)
           : null,
@@ -333,35 +314,6 @@ class _AdminEventFormSheetState extends State<AdminEventFormSheet> {
                         validator: (value) {
                           if (value == null) {
                             return 'Vui lòng chọn danh mục';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      // Visibility
-                      DropdownButtonFormField<String>(
-                        value: _selectedVisibility,
-                        decoration: InputDecoration(
-                          labelText: 'Phạm vi hiển thị',
-                          prefixIcon: const Icon(LucideIcons.eye),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        items: _visibilities.map((visibility) {
-                          return DropdownMenuItem(
-                            value: visibility,
-                            child: Text(_getVisibilityLabel(visibility)),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedVisibility = value;
-                          });
-                        },
-                        validator: (value) {
-                          if (value == null) {
-                            return 'Vui lòng chọn phạm vi';
                           }
                           return null;
                         },

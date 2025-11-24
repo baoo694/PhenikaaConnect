@@ -37,11 +37,12 @@ class AnnouncementDetailScreen extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context) {
-    final isHighPriority =
-        announcement['important'] == true || announcement['priority'] == 'high';
+    final priority = (announcement['priority'] ?? 'normal').toString();
+    final priorityLabel = _getPriorityLabel(priority);
+    final priorityBadgeType = _getPriorityBadgeType(priority);
     return CustomCard(
       backgroundColor:
-          isHighPriority ? const Color(0xFFFFF5F5) : Theme.of(context).colorScheme.surface,
+          priority == 'high' ? const Color(0xFFFFF5F5) : Theme.of(context).colorScheme.surface,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -67,8 +68,8 @@ class AnnouncementDetailScreen extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               CustomBadge(
-                text: isHighPriority ? 'Khẩn' : 'Thông thường',
-                type: isHighPriority ? BadgeType.error : BadgeType.outline,
+                text: priorityLabel,
+                type: priorityBadgeType,
                 size: BadgeSize.small,
               ),
             ],
@@ -159,7 +160,7 @@ class AnnouncementDetailScreen extends StatelessWidget {
             context,
             LucideIcons.flag,
             'Mức độ ưu tiên',
-            _getPriorityText(announcement['priority']),
+            _getPriorityLabel((announcement['priority'] ?? 'normal').toString()),
           ),
         ],
       ),
@@ -212,18 +213,25 @@ class AnnouncementDetailScreen extends StatelessWidget {
     }
   }
 
-  String _getPriorityText(String? priority) {
-    switch (priority) {
+  String _getPriorityLabel(String? priority) {
+    switch ((priority ?? 'normal').toString()) {
       case 'high':
-        return 'Cao (Quan trọng)';
-      case 'normal':
-        return 'Bình thường';
+        return 'Khẩn cấp';
       case 'low':
         return 'Thấp';
-      case 'urgent':
-        return 'Khẩn cấp';
       default:
-        return 'Không xác định';
+        return 'Thông thường';
+    }
+  }
+
+  BadgeType _getPriorityBadgeType(String? priority) {
+    switch ((priority ?? 'normal').toString()) {
+      case 'high':
+        return BadgeType.error;
+      case 'low':
+        return BadgeType.secondary;
+      default:
+        return BadgeType.outline;
     }
   }
 }

@@ -42,7 +42,12 @@ class _ClubLeaderActivityFormSheetState extends State<ClubLeaderActivityFormShee
       _descriptionController.text = widget.activity!.description ?? '';
       _selectedDate = widget.activity!.date;
       _selectedLocation = widget.activity!.location;
-      _timeController.text = '${widget.activity!.date.hour.toString().padLeft(2, '0')}:${widget.activity!.date.minute.toString().padLeft(2, '0')}';
+      if (widget.activity!.time != null && widget.activity!.time!.isNotEmpty) {
+        _timeController.text = widget.activity!.time!;
+      } else {
+        _timeController.text =
+            '${widget.activity!.date.hour.toString().padLeft(2, '0')}:${widget.activity!.date.minute.toString().padLeft(2, '0')}';
+      }
     }
   }
 

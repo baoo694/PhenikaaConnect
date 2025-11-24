@@ -21,7 +21,6 @@ class _AdminClubFormSheetState extends State<AdminClubFormSheet> {
   
   String? _selectedCategory;
   String? _selectedStatus;
-  String? _selectedVisibility;
   bool _isLoading = false;
 
   final List<String> _categories = [
@@ -35,12 +34,6 @@ class _AdminClubFormSheetState extends State<AdminClubFormSheet> {
     'pending',
     'approved',
     'rejected',
-  ];
-
-  final List<String> _visibilities = [
-    'public',
-    'campus',
-    'club_only',
   ];
 
   @override
@@ -57,10 +50,6 @@ class _AdminClubFormSheetState extends State<AdminClubFormSheet> {
       // Ensure status exists in list
       final status = widget.club!['status'];
       _selectedStatus = _statuses.contains(status) ? status : null;
-      
-      // Ensure visibility exists in list
-      final visibility = widget.club!['visibility'];
-      _selectedVisibility = _visibilities.contains(visibility) ? visibility : null;
     }
   }
 
@@ -84,23 +73,10 @@ class _AdminClubFormSheetState extends State<AdminClubFormSheet> {
     }
   }
 
-  String _getVisibilityLabel(String visibility) {
-    switch (visibility) {
-      case 'public':
-        return 'Công khai';
-      case 'campus':
-        return 'Nội bộ';
-      case 'club_only':
-        return 'Chỉ CLB';
-      default:
-        return visibility;
-    }
-  }
-
   Future<void> _submitClub() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (_selectedCategory == null || _selectedVisibility == null) {
+    if (_selectedCategory == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Vui lòng chọn đầy đủ thông tin'),
@@ -127,7 +103,6 @@ class _AdminClubFormSheetState extends State<AdminClubFormSheet> {
       'name': _nameController.text.trim(),
       'description': _descriptionController.text.trim(),
       'category': _selectedCategory!,
-      'visibility': _selectedVisibility!,
     };
 
     bool success;
@@ -297,34 +272,6 @@ class _AdminClubFormSheetState extends State<AdminClubFormSheet> {
                 ),
               ),
             ],
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _selectedVisibility,
-              decoration: InputDecoration(
-                labelText: 'Phạm vi hiển thị',
-                prefixIcon: const Icon(LucideIcons.eye),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              items: _visibilities.map((visibility) {
-                return DropdownMenuItem(
-                  value: visibility,
-                  child: Text(_getVisibilityLabel(visibility)),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedVisibility = value;
-                });
-              },
-              validator: (value) {
-                if (value == null) {
-                  return 'Vui lòng chọn phạm vi hiển thị';
-                }
-                return null;
-              },
-            ),
             const SizedBox(height: 24),
             CustomButton(
               text: widget.club != null ? 'Cập nhật' : 'Tạo câu lạc bộ',

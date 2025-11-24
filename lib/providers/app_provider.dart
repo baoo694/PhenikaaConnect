@@ -64,6 +64,10 @@ class AppProvider extends ChangeNotifier {
   // Courses
   List<Course> _courses = [];
   List<Course> get courses => _courses;
+  
+  // All courses (for forms - not filtered by user)
+  List<Course> _allCourses = [];
+  List<Course> get allCourses => _allCourses;
 
   // Selected Tab
   int _selectedTabIndex = 0;
@@ -131,6 +135,7 @@ class AppProvider extends ChangeNotifier {
     await loadLocations();
     await loadClassSchedule();
     await loadCourses();
+    await loadAllCourses();
     _subscribeToQuestionReplies();
     _subscribeToAnnouncements();
   }
@@ -329,6 +334,18 @@ class AppProvider extends ChangeNotifier {
     }
 
     _isCoursesLoading = false;
+    notifyListeners();
+  }
+
+  // Load all courses from the courses table (for question and study group forms)
+  Future<void> loadAllCourses() async {
+    try {
+      _allCourses = await SupabaseService.getAllCourses();
+      print('Loaded ${_allCourses.length} all courses from Supabase');
+    } catch (e) {
+      print('Error loading all courses: $e');
+      _allCourses = [];
+    }
     notifyListeners();
   }
 

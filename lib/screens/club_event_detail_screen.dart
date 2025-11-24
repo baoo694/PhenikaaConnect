@@ -150,11 +150,6 @@ class ClubEventDetailScreen extends StatelessWidget {
                           type: BadgeType.outline,
                           size: BadgeSize.small,
                         ),
-                        CustomBadge(
-                          text: event.visibility.value,
-                          type: BadgeType.outline,
-                          size: BadgeSize.small,
-                        ),
                       ],
                     ),
                     const SizedBox(height: 24),

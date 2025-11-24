@@ -248,12 +248,6 @@ class _AdminEventDetailScreenState extends State<AdminEventDetailScreen> {
                               type: BadgeType.outline,
                               size: BadgeSize.small,
                             ),
-                            const SizedBox(width: 8),
-                            CustomBadge(
-                              text: _currentEvent.visibility.value,
-                              type: BadgeType.outline,
-                              size: BadgeSize.small,
-                            ),
                           ],
                         ),
 

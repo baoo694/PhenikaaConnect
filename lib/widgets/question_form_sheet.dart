@@ -11,7 +11,7 @@ Future<void> showQuestionFormSheet(
   Question? editingQuestion,
 }) async {
   final appProvider = Provider.of<AppProvider>(context, listen: false);
-  final courses = appProvider.courses;
+  final courses = appProvider.allCourses;
   final hasCourses = courses.isNotEmpty;
   final titleController =
       TextEditingController(text: editingQuestion?.title ?? '');

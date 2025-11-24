@@ -237,7 +237,6 @@ class AdminService {
           image: json['image_url'] ?? '',
           clubId: json['club_id']?.toString(),
           status: parseApprovalStatus(json['status']?.toString()),
-          visibility: parseVisibilityScope(json['visibility']?.toString()),
         );
       }).toList();
     } catch (e) {
@@ -354,7 +353,6 @@ class AdminService {
           description: json['description'] ?? '',
           active: json['active'] ?? false,
           status: parseApprovalStatus(json['status']?.toString()),
-          visibility: parseVisibilityScope(json['visibility']?.toString()),
           leaderId: json['leader_id']?.toString(),
           metadata: Map<String, dynamic>.from(json['metadata'] ?? const {}),
         );
