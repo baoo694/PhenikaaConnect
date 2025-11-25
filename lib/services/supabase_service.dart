@@ -263,7 +263,7 @@ class SupabaseService {
         avatar: userData['avatar_url'] ?? '',
         time: _formatTimeAgo(response['created_at']),
         content: response['content'],
-        imageUrl: imageUrl,
+        imageUrl: response['image_url'],
         likes: 0,
         comments: 0,
         shares: 0,
@@ -599,6 +599,9 @@ class SupabaseService {
       // Chỉ set isJoined=true khi status='active', không phải 'pending'
       return response.map<Map<String, dynamic>>((club) {
         final members = club['club_members'] as List? ?? [];
+        final isLeader = userId != null &&
+            club['leader_id'] != null &&
+            club['leader_id'].toString() == userId;
         // Tìm membership của user hiện tại
         Map<String, dynamic>? userMember;
         if (userId != null && members.isNotEmpty) {
@@ -616,10 +619,10 @@ class SupabaseService {
         // Lấy status của user member (có thể là string hoặc dynamic)
         final userStatus = userMember != null ? (userMember['status']?.toString() ?? '').toLowerCase() : '';
         
-        // Chỉ tính là joined nếu status = 'active'
-        final isJoined = userStatus == 'active';
-        // Kiểm tra nếu có pending request
-        final isPending = userStatus == 'pending';
+        // Chỉ tính là joined nếu status = 'active', hoặc nếu là leader
+        final isJoined = isLeader || userStatus == 'active';
+        // Kiểm tra nếu có pending request (leader không bao giờ pending)
+        final isPending = !isLeader && userStatus == 'pending';
         
         // Debug log - chỉ log khi có membership
         if (userId != null && userMember != null) {
@@ -631,12 +634,20 @@ class SupabaseService {
           final status = (m['status']?.toString() ?? '').toLowerCase();
           return status == 'active';
         }).toList();
-        final membersCount = activeMembers.length;
+        int membersCount = activeMembers.length;
+        if (isLeader) {
+          // Nếu leader chưa nằm trong activeMembers thì cộng thêm 1
+          final leaderAlreadyCounted = activeMembers.any((m) => m['user_id'] == userId);
+          if (!leaderAlreadyCounted) {
+            membersCount += 1;
+          }
+        }
         
         return {
           ...club,
           'isJoined': isJoined,
           'isPending': isPending,
+          'isLeader': isLeader,
           'members_count': membersCount,
         };
       }).toList();

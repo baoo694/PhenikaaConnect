@@ -6,6 +6,7 @@ import '../services/club_leader_service.dart';
 import '../providers/app_provider.dart';
 import '../widgets/common_widgets.dart';
 import 'club_leader_post_form_sheet.dart';
+import 'image_viewer_screen.dart';
 
 class ClubLeaderPostsScreen extends StatefulWidget {
   final String clubId;
@@ -476,6 +477,9 @@ class _ClubLeaderPostsScreenState extends State<ClubLeaderPostsScreen> {
   }
 
   Widget _buildPostCard(ClubPost post) {
+    final hasImage = post.attachments.isNotEmpty;
+    final imageUrl = hasImage ? post.attachments.first.toString() : null;
+
     return InkWell(
       onTap: () => _showPostDetail(post),
       child: Container(
@@ -485,7 +489,10 @@ class _ClubLeaderPostsScreenState extends State<ClubLeaderPostsScreen> {
           color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+            color: post.pinned 
+                ? Theme.of(context).colorScheme.primary.withOpacity(0.5)
+                : Theme.of(context).colorScheme.outline.withOpacity(0.2),
+            width: post.pinned ? 2 : 1,
           ),
         ),
         child: Column(
@@ -493,6 +500,10 @@ class _ClubLeaderPostsScreenState extends State<ClubLeaderPostsScreen> {
           children: [
             Row(
               children: [
+                if (post.pinned) ...[
+                  const Icon(LucideIcons.pin, size: 16, color: Colors.orange),
+                  const SizedBox(width: 4),
+                ],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -506,6 +517,32 @@ class _ClubLeaderPostsScreenState extends State<ClubLeaderPostsScreen> {
                         ),
                     ],
                   ),
+                ),
+                IconButton(
+                  icon: Icon(
+                    post.pinned ? LucideIcons.pin : LucideIcons.pinOff,
+                    size: 18,
+                  ),
+                  color: post.pinned ? Colors.orange : Colors.grey,
+                  tooltip: post.pinned ? 'Bỏ ghim' : 'Ghim bài viết',
+                  onPressed: () async {
+                    final success = await ClubLeaderService.togglePinPost(
+                      post.id,
+                      !post.pinned,
+                    );
+                    if (success) {
+                      await _loadPosts();
+                    } else {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Có lỗi xảy ra khi thay đổi trạng thái ghim'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  },
                 ),
                 IconButton(
                   icon: const Icon(LucideIcons.edit, size: 18),
@@ -526,6 +563,37 @@ class _ClubLeaderPostsScreenState extends State<ClubLeaderPostsScreen> {
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
+            // Image preview
+            if (hasImage && imageUrl != null) ...[
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ImageViewerScreen(
+                        imageUrl: imageUrl,
+                        title: 'Ảnh bài viết',
+                      ),
+                    ),
+                  );
+                },
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    imageUrl,
+                    width: double.infinity,
+                    height: 150,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      height: 150,
+                      color: Theme.of(context).colorScheme.surfaceVariant,
+                      alignment: Alignment.center,
+                      child: const Icon(LucideIcons.imageOff, color: Colors.grey),
+                    ),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             FutureBuilder<int>(
               future: ClubLeaderService.getClubPostCommentsCount(post.id),

@@ -1,5 +1,7 @@
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:convert';
+import 'package:uuid/uuid.dart';
 import '../config/supabase_config.dart';
 import '../models/event.dart';
 
@@ -39,6 +41,7 @@ class ClubLeaderService {
           users!club_posts_author_id_fkey(id, name, avatar_url)
         ''')
         .eq('club_id', clubId)
+        .order('pinned', ascending: false)
         .order('created_at', ascending: false);
     return response.map<ClubPost>((json) => ClubPost.fromJson(json)).toList();
   }
@@ -53,6 +56,7 @@ class ClubLeaderService {
             users!club_posts_author_id_fkey(id, name, avatar_url)
           ''')
           .eq('club_id', clubId)
+          .order('pinned', ascending: false)
           .order('created_at', ascending: false);
       return response;
     } catch (e) {
@@ -384,16 +388,53 @@ class ClubLeaderService {
     required String authorId,
     required String content,
     String? title,
+    String? imageBase64,
   }) async {
     try {
-      await _client.from('club_posts').insert({
+      String? imageUrl;
+
+      // Upload image to Supabase Storage if provided
+      if (imageBase64 != null && imageBase64.isNotEmpty) {
+        try {
+          // Strip common data URL prefixes if present
+          final cleaned = imageBase64.contains(',')
+              ? imageBase64.split(',').last
+              : imageBase64;
+          final bytes = base64Decode(cleaned);
+          final uuid = const Uuid().v4();
+          final filePath = 'club_posts/$clubId/$uuid.png';
+          const bucket = 'post_images';
+          
+          await _client.storage
+              .from(bucket)
+              .uploadBinary(
+                filePath,
+                bytes,
+                fileOptions: const FileOptions(
+                  contentType: 'image/png',
+                  upsert: false,
+                ),
+              );
+          final publicUrl = _client.storage.from(bucket).getPublicUrl(filePath);
+          imageUrl = publicUrl;
+        } catch (e) {
+          print('Image upload failed, proceeding without image: $e');
+          imageUrl = null;
+        }
+      }
+
+      final insertData = <String, dynamic>{
         'club_id': clubId,
         'author_id': authorId,
         'content': content,
         if (title != null) 'title': title,
-      });
+        if (imageUrl != null && imageUrl.isNotEmpty) 'attachments': [imageUrl],
+      };
+
+      await _client.from('club_posts').insert(insertData);
       return true;
-    } catch (_) {
+    } catch (e) {
+      print('Error creating club post: $e');
       return false;
     }
   }
@@ -551,14 +592,100 @@ class ClubLeaderService {
     required String postId,
     required String content,
     String? title,
+    String? imageBase64,
+    bool removeImage = false,
   }) async {
     try {
+      // Get current post to check for existing image
+      final currentPost = await _client
+          .from('club_posts')
+          .select('attachments, club_id')
+          .eq('id', postId)
+          .single();
+
+      String? imageUrl;
+      List<dynamic>? attachments;
+
+      // Handle image upload/removal
+      if (removeImage) {
+        // Delete old image from storage if exists
+        if (currentPost['attachments'] != null && 
+            (currentPost['attachments'] as List).isNotEmpty) {
+          try {
+            final oldImageUrl = (currentPost['attachments'] as List).first.toString();
+            final uri = Uri.parse(oldImageUrl);
+            final pathParts = uri.pathSegments;
+            if (pathParts.length >= 3) {
+              final bucket = pathParts[pathParts.length - 3];
+              final filePath = pathParts.sublist(pathParts.length - 2).join('/');
+              await _client.storage.from(bucket).remove([filePath]);
+            }
+          } catch (e) {
+            print('Error deleting old image: $e');
+          }
+        }
+        attachments = [];
+      } else if (imageBase64 != null && imageBase64.isNotEmpty) {
+        // Upload new image
+        try {
+          // Delete old image if exists
+          if (currentPost['attachments'] != null && 
+              (currentPost['attachments'] as List).isNotEmpty) {
+            try {
+              final oldImageUrl = (currentPost['attachments'] as List).first.toString();
+              final uri = Uri.parse(oldImageUrl);
+              final pathParts = uri.pathSegments;
+              if (pathParts.length >= 3) {
+                final bucket = pathParts[pathParts.length - 3];
+                final filePath = pathParts.sublist(pathParts.length - 2).join('/');
+                await _client.storage.from(bucket).remove([filePath]);
+              }
+            } catch (e) {
+              print('Error deleting old image: $e');
+            }
+          }
+
+          // Upload new image
+          final cleaned = imageBase64.contains(',')
+              ? imageBase64.split(',').last
+              : imageBase64;
+          final bytes = base64Decode(cleaned);
+          final uuid = const Uuid().v4();
+          final clubId = currentPost['club_id'].toString();
+          final filePath = 'club_posts/$clubId/$uuid.png';
+          const bucket = 'post_images';
+          
+          await _client.storage
+              .from(bucket)
+              .uploadBinary(
+                filePath,
+                bytes,
+                fileOptions: const FileOptions(
+                  contentType: 'image/png',
+                  upsert: false,
+                ),
+              );
+          final publicUrl = _client.storage.from(bucket).getPublicUrl(filePath);
+          imageUrl = publicUrl;
+          attachments = [imageUrl];
+        } catch (e) {
+          print('Image upload failed: $e');
+        }
+      } else {
+        // Keep existing attachments
+        attachments = currentPost['attachments'];
+      }
+
       final updateData = <String, dynamic>{
         'content': content,
       };
       if (title != null) {
         updateData['title'] = title;
       }
+      if (attachments != null) {
+        updateData['attachments'] = attachments;
+      }
+      
       await _client.from('club_posts').update(updateData).eq('id', postId);
       return true;
     } catch (e) {
@@ -569,10 +696,47 @@ class ClubLeaderService {
 
   static Future<bool> deleteClubPost(String postId) async {
     try {
+      // Get post to delete associated image
+      final post = await _client
+          .from('club_posts')
+          .select('attachments')
+          .eq('id', postId)
+          .maybeSingle();
+
+      // Delete image from storage if exists
+      if (post != null && post['attachments'] != null && 
+          (post['attachments'] as List).isNotEmpty) {
+        try {
+          final imageUrl = (post['attachments'] as List).first.toString();
+          final uri = Uri.parse(imageUrl);
+          final pathParts = uri.pathSegments;
+          if (pathParts.length >= 3) {
+            final bucket = pathParts[pathParts.length - 3];
+            final filePath = pathParts.sublist(pathParts.length - 2).join('/');
+            await _client.storage.from(bucket).remove([filePath]);
+          }
+        } catch (e) {
+          print('Error deleting image: $e');
+        }
+      }
+
       await _client.from('club_posts').delete().eq('id', postId);
       return true;
     } catch (e) {
       print('Error deleting post: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> togglePinPost(String postId, bool pinned) async {
+    try {
+      await _client
+          .from('club_posts')
+          .update({'pinned': pinned})
+          .eq('id', postId);
+      return true;
+    } catch (e) {
+      print('Error toggling pin post: $e');
       return false;
     }
   }

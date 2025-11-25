@@ -3,6 +3,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../models/post.dart';
 import '../widgets/common_widgets.dart';
 import 'comments_screen.dart';
+import 'image_viewer_screen.dart';
 
 class PostDetailScreen extends StatefulWidget {
   final Post post;
@@ -99,18 +100,51 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           ),
           const SizedBox(height: 16),
           if (_post.imageUrl != null && _post.imageUrl!.isNotEmpty) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: AspectRatio(
-                aspectRatio: 4 / 3,
-                child: Image.network(
-                  _post.imageUrl!,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    color: Theme.of(context).colorScheme.surfaceVariant,
-                    alignment: Alignment.center,
-                    child: const Icon(LucideIcons.imageOff, color: Colors.grey),
+            GestureDetector(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ImageViewerScreen(
+                      imageUrl: _post.imageUrl!,
+                      title: 'Ảnh bài viết',
+                    ),
+                  ),
+                );
+              },
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: AspectRatio(
+                  aspectRatio: 4 / 3,
+                  child: Stack(
+                    children: [
+                      Image.network(
+                        _post.imageUrl!,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: Theme.of(context).colorScheme.surfaceVariant,
+                          alignment: Alignment.center,
+                          child: const Icon(LucideIcons.imageOff, color: Colors.grey),
+                        ),
+                      ),
+                      // Overlay để hiển thị icon zoom khi hover/tap
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            LucideIcons.maximize2,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

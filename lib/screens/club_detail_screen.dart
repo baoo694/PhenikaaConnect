@@ -5,6 +5,7 @@ import '../providers/app_provider.dart';
 import '../widgets/common_widgets.dart';
 import '../services/club_leader_service.dart';
 import '../services/supabase_service.dart';
+import 'image_viewer_screen.dart';
 
 class ClubDetailScreen extends StatefulWidget {
   final Map<String, dynamic> club;
@@ -159,7 +160,13 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> with SingleTickerPr
         actions: [
           Consumer<AppProvider>(
             builder: (context, appProvider, child) {
-              if (_currentClub['isJoined'] == true) {
+              if (_currentClub['isLeader'] == true) {
+                return IconButton(
+                  icon: const Icon(LucideIcons.crown),
+                  tooltip: 'Bạn là chủ nhiệm',
+                  onPressed: null,
+                );
+              } else if (_currentClub['isJoined'] == true) {
                 return IconButton(
                   icon: const Icon(LucideIcons.userMinus),
                   tooltip: 'Rời CLB',
@@ -445,9 +452,14 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> with SingleTickerPr
     final author = post['users'] as Map<String, dynamic>?;
     final authorName = author?['name'] ?? 'Người dùng';
     final authorAvatar = author?['avatar_url'];
+    final isPinned = (post['pinned']?.toString() ?? 'false') == 'true';
+    final attachments = (post['attachments'] as List?) ?? const [];
     
     return CustomCard(
       margin: const EdgeInsets.only(bottom: 16),
+      borderColor: isPinned
+          ? Theme.of(context).colorScheme.primary.withOpacity(0.5)
+          : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -489,6 +501,34 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> with SingleTickerPr
               ),
             ],
           ),
+          if (isPinned) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    LucideIcons.pin,
+                    size: 14,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Đã ghim',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (post['title'] != null && post['title'].toString().isNotEmpty) ...[
             const SizedBox(height: 12),
             Text(
@@ -503,6 +543,58 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> with SingleTickerPr
             Text(
               post['content'],
               style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+          if (attachments.isNotEmpty && attachments.first != null) ...[
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: () {
+                final imageUrl = attachments.first.toString();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ImageViewerScreen(
+                      imageUrl: imageUrl,
+                      title: 'Ảnh bài viết',
+                    ),
+                  ),
+                );
+              },
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: AspectRatio(
+                  aspectRatio: 4 / 3,
+                  child: Stack(
+                    children: [
+                      Image.network(
+                        attachments.first.toString(),
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: Theme.of(context).colorScheme.surfaceVariant,
+                          alignment: Alignment.center,
+                          child: const Icon(LucideIcons.imageOff, color: Colors.grey),
+                        ),
+                      ),
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            LucideIcons.maximize2,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ],
           const SizedBox(height: 12),

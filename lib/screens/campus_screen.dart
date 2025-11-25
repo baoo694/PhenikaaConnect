@@ -1081,6 +1081,7 @@ class _CampusScreenState extends State<CampusScreen>
                 'active': club['active'],
                 'isJoined': club['isJoined'] ?? false,
                 'isPending': club['isPending'] ?? false,
+                'isLeader': club['isLeader'] ?? false,
               }),
             );
           }).toList(),
@@ -1112,7 +1113,38 @@ class _CampusScreenState extends State<CampusScreen>
                   ),
                 ),
               ),
-              if (club['isJoined'] == true) ...[
+              if (club['isLeader'] == true) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.purple.shade200,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        LucideIcons.crown,
+                        size: 12,
+                        color: Colors.purple.shade700,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Chủ nhiệm',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.purple.shade700,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ] else if (club['isJoined'] == true) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
@@ -1243,7 +1275,18 @@ class _CampusScreenState extends State<CampusScreen>
           const SizedBox(height: 16),
           Row(
             children: [
-              if (club['isJoined'] == true) ...[
+              if (club['isLeader'] == true) ...[
+                Expanded(
+                  child: CustomButton(
+                    text: 'Bạn là chủ nhiệm',
+                    type: ButtonType.outline,
+                    size: ButtonSize.small,
+                    icon: LucideIcons.crown,
+                    onPressed: null,
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ] else if (club['isJoined'] == true) ...[
                 // Đã tham gia - hiển thị nút Rời CLB
                 Expanded(
                   child: Consumer<AppProvider>(

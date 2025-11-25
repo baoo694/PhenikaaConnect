@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:convert';
 import '../models/event.dart';
 import '../services/club_leader_service.dart';
 import '../providers/app_provider.dart';
 import '../widgets/common_widgets.dart';
+import 'image_viewer_screen.dart';
 
 class ClubLeaderPostFormSheet extends StatefulWidget {
   final ClubPost? post;
@@ -25,6 +28,8 @@ class _ClubLeaderPostFormSheetState extends State<ClubLeaderPostFormSheet> {
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
   bool _isLoading = false;
+  String? _selectedImageBase64;
+  String? _currentImageUrl;
 
   @override
   void initState() {
@@ -32,6 +37,13 @@ class _ClubLeaderPostFormSheetState extends State<ClubLeaderPostFormSheet> {
     if (widget.post != null) {
       _titleController.text = widget.post!.title ?? '';
       _contentController.text = widget.post!.content;
+      // Get existing image URL if any
+      if (widget.post!.attachments.isNotEmpty) {
+        final attachment = widget.post!.attachments.first;
+        if (attachment != null) {
+          _currentImageUrl = attachment.toString();
+        }
+      }
     }
   }
 
@@ -65,10 +77,32 @@ class _ClubLeaderPostFormSheetState extends State<ClubLeaderPostFormSheet> {
     bool success;
     if (widget.post != null) {
       // Update
+      // Check if post originally had an image
+      final originallyHadImage = widget.post!.attachments.isNotEmpty;
+      // Check current state
+      final hasImageNow = _selectedImageBase64 != null || 
+                         (_currentImageUrl != null && _currentImageUrl!.isNotEmpty);
+      // Image is removed if: originally had image, but now doesn't
+      final imageRemoved = originallyHadImage && !hasImageNow;
+      
+      // Determine if we need to send imageBase64
+      String? imageBase64;
+      if (_selectedImageBase64 != null) {
+        // Check if it's a new base64 image (not a URL)
+        final selectedImage = _selectedImageBase64;
+        if (selectedImage != null && 
+            !selectedImage.startsWith('http') && 
+            !selectedImage.startsWith('https')) {
+          imageBase64 = selectedImage;
+        }
+      }
+      
       success = await ClubLeaderService.updateClubPost(
         postId: widget.post!.id,
         title: _titleController.text.isEmpty ? null : _titleController.text,
         content: _contentController.text,
+        imageBase64: imageBase64,
+        removeImage: imageRemoved,
       );
     } else {
       // Create
@@ -77,6 +111,7 @@ class _ClubLeaderPostFormSheetState extends State<ClubLeaderPostFormSheet> {
         authorId: user.id,
         content: _contentController.text,
         title: _titleController.text.isEmpty ? null : _titleController.text,
+        imageBase64: _selectedImageBase64,
       );
     }
 
@@ -149,6 +184,94 @@ class _ClubLeaderPostFormSheetState extends State<ClubLeaderPostFormSheet> {
                   return null;
                 },
               ),
+              const SizedBox(height: 16),
+              // Image selection button
+              Row(
+                children: [
+                  CustomButton(
+                    text: 'Chọn ảnh',
+                    type: ButtonType.ghost,
+                    size: ButtonSize.small,
+                    icon: LucideIcons.image,
+                    onPressed: () async {
+                      final result = await FilePicker.platform.pickFiles(
+                        type: FileType.image,
+                        withData: true,
+                      );
+                      if (result != null && result.files.isNotEmpty) {
+                        final bytes = result.files.first.bytes;
+                        if (bytes != null) {
+                          setState(() {
+                            _selectedImageBase64 = base64Encode(bytes);
+                            _currentImageUrl = null; // Clear existing URL when new image selected
+                          });
+                        }
+                      }
+                    },
+                  ),
+                  if ((_selectedImageBase64 != null || _currentImageUrl != null)) ...[
+                    const SizedBox(width: 8),
+                    CustomButton(
+                      text: 'Xóa ảnh',
+                      type: ButtonType.ghost,
+                      size: ButtonSize.small,
+                      icon: LucideIcons.trash2,
+                      onPressed: () {
+                        setState(() {
+                          _selectedImageBase64 = null;
+                          _currentImageUrl = null;
+                        });
+                      },
+                    ),
+                  ],
+                ],
+              ),
+              // Image preview
+              if (_selectedImageBase64 != null || _currentImageUrl != null) ...[
+                const SizedBox(height: 16),
+                GestureDetector(
+                  onTap: () {
+                    // Only allow viewing full screen if it's a URL (not base64)
+                    final imageUrl = _currentImageUrl;
+                    if (imageUrl != null && imageUrl.isNotEmpty) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ImageViewerScreen(
+                            imageUrl: imageUrl,
+                            title: 'Xem ảnh',
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: _selectedImageBase64 != null && 
+                           !_selectedImageBase64!.startsWith('http') &&
+                           !_selectedImageBase64!.startsWith('https')
+                        ? Image.memory(
+                            base64Decode(_selectedImageBase64!),
+                            width: double.infinity,
+                            height: 200,
+                            fit: BoxFit.cover,
+                          )
+                        : _currentImageUrl != null
+                            ? Image.network(
+                                _currentImageUrl!,
+                                width: double.infinity,
+                                height: 200,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => Container(
+                                  height: 200,
+                                  color: Theme.of(context).colorScheme.surfaceVariant,
+                                  alignment: Alignment.center,
+                                  child: const Icon(LucideIcons.imageOff, color: Colors.grey),
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               CustomButton(
                 text: widget.post != null ? 'Cập nhật' : 'Đăng bài',
