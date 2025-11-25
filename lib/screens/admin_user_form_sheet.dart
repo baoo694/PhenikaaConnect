@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../models/user.dart' as app_models;
 import '../services/admin_service.dart';
@@ -19,6 +20,7 @@ class _AdminUserFormSheetState extends State<AdminUserFormSheet> {
   final _emailController = TextEditingController();
   final _studentIdController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _tempPasswordController = TextEditingController();
   
   String? _selectedMajor;
   String? _selectedYear;
@@ -67,12 +69,65 @@ class _AdminUserFormSheetState extends State<AdminUserFormSheet> {
     }
   }
 
+  Future<void> _showTempPasswordDialog(String email, String password) async {
+    if (!mounted) return;
+    final parentContext = context;
+    await showDialog(
+      context: parentContext,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Thông tin đăng nhập tạm thời'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Email: $email'),
+              const SizedBox(height: 8),
+              const Text('Mật khẩu tạm thời:'),
+              const SizedBox(height: 4),
+              SelectableText(
+                password,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Vui lòng gửi thông tin này cho người dùng để họ đăng nhập và đổi mật khẩu.',
+                style: TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: password));
+                Navigator.of(dialogContext).pop();
+                ScaffoldMessenger.of(parentContext).showSnackBar(
+                  const SnackBar(
+                    content: Text('Đã sao chép mật khẩu'),
+                  ),
+                );
+              },
+              child: const Text('Copy mật khẩu'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Đóng'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
     _studentIdController.dispose();
     _phoneController.dispose();
+    _tempPasswordController.dispose();
     super.dispose();
   }
 
@@ -105,15 +160,31 @@ class _AdminUserFormSheetState extends State<AdminUserFormSheet> {
     };
 
     bool success;
+    String? tempPasswordResult;
+    String? errorMessage;
     if (widget.user != null) {
       success = await AdminService.updateUser(widget.user!.id, userData);
     } else {
-      success = await AdminService.createUser(userData);
+      final result = await AdminService.createUser(
+        userData,
+        tempPassword: _tempPasswordController.text.trim().isEmpty
+            ? null
+            : _tempPasswordController.text.trim(),
+      );
+      success = result.success;
+      tempPasswordResult = result.tempPassword;
+      errorMessage = result.error;
     }
 
     setState(() => _isLoading = false);
 
     if (success) {
+      if (tempPasswordResult != null && widget.user == null) {
+        await _showTempPasswordDialog(
+          _emailController.text.trim(),
+          tempPasswordResult!,
+        );
+      }
       if (mounted) {
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -128,8 +199,8 @@ class _AdminUserFormSheetState extends State<AdminUserFormSheet> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Có lỗi xảy ra'),
+          SnackBar(
+            content: Text(errorMessage ?? 'Có lỗi xảy ra'),
             backgroundColor: Colors.red,
           ),
         );
@@ -283,6 +354,16 @@ class _AdminUserFormSheetState extends State<AdminUserFormSheet> {
                         },
                       ),
                       const SizedBox(height: 24),
+                      if (widget.user == null) ...[
+                        CustomInput(
+                          controller: _tempPasswordController,
+                          hintText: 'Để trống để tạo tự động',
+                          labelText: 'Mật khẩu tạm (tùy chọn)',
+                          prefixIcon: LucideIcons.key,
+                          obscureText: true,
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       CustomButton(
                         text: widget.user != null ? 'Cập nhật' : 'Tạo người dùng',
                         icon: widget.user != null ? LucideIcons.save : LucideIcons.plus,

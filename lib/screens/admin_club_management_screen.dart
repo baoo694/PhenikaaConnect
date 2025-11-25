@@ -4,7 +4,6 @@ import '../models/event.dart';
 import '../services/admin_service.dart';
 import '../widgets/common_widgets.dart';
 import 'admin_club_detail_screen.dart';
-import 'admin_club_form_sheet.dart';
 
 class AdminClubManagementScreen extends StatefulWidget {
   const AdminClubManagementScreen({super.key});
@@ -125,25 +124,6 @@ class _AdminClubManagementScreenState extends State<AdminClubManagementScreen> {
                         _searchQuery = value;
                       });
                     },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(LucideIcons.plus),
-                  onPressed: () async {
-                    final result = await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AdminClubFormSheet(),
-                      ),
-                    );
-                    if (result == true) {
-                      await _loadClubs();
-                    }
-                  },
-                  style: IconButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
                   ),
                 ),
               ],

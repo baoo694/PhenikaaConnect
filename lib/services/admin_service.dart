@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 import '../models/event.dart';
@@ -299,13 +300,64 @@ class AdminService {
     }
   }
 
-  static Future<bool> createUser(Map<String, dynamic> userData) async {
+  static Future<AdminCreateUserResult> createUser(
+    Map<String, dynamic> userData, {
+    String? tempPassword,
+  }) async {
     try {
-      await _client.from('users').insert(userData);
-      return true;
+      final email = (userData['email']?.toString() ?? '').trim();
+      if (email.isEmpty) {
+        return const AdminCreateUserResult(
+          success: false,
+          error: 'Email không hợp lệ',
+        );
+      }
+
+      final password = (tempPassword != null && tempPassword.isNotEmpty)
+          ? tempPassword
+          : _generateTempPassword();
+
+      final response = await _client.auth.signUp(
+        email: email,
+        password: password,
+        data: {
+          'role': userData['role'] ?? 'user',
+        },
+      );
+
+      final createdUser = response.user;
+      if (createdUser == null) {
+        return const AdminCreateUserResult(
+          success: false,
+          error: 'Không thể tạo tài khoản đăng nhập',
+        );
+      }
+
+      await _client.from('users').insert({
+        'id': createdUser.id,
+        ...userData,
+      });
+
+      return AdminCreateUserResult(
+        success: true,
+        tempPassword: password,
+      );
+    } on AuthException catch (e) {
+      return AdminCreateUserResult(
+        success: false,
+        error: e.message,
+      );
+    } on PostgrestException catch (e) {
+      return AdminCreateUserResult(
+        success: false,
+        error: e.message,
+      );
     } catch (e) {
       print('Error creating user: $e');
-      return false;
+      return const AdminCreateUserResult(
+        success: false,
+        error: 'Có lỗi xảy ra khi tạo người dùng',
+      );
     }
   }
 
@@ -442,5 +494,24 @@ class AdminService {
       return false;
     }
   }
+}
+
+class AdminCreateUserResult {
+  final bool success;
+  final String? error;
+  final String? tempPassword;
+
+  const AdminCreateUserResult({
+    required this.success,
+    this.error,
+    this.tempPassword,
+  });
+}
+
+String _generateTempPassword({int length = 10}) {
+  const chars =
+      'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz0123456789@#%&*!?';
+  final rand = Random.secure();
+  return List.generate(length, (_) => chars[rand.nextInt(chars.length)]).join();
 }
 
