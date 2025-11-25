@@ -1408,11 +1408,17 @@ class SupabaseService {
   // Trả về null nếu thành công; trả về thông điệp lỗi tiếng Việt nếu thất bại
   static Future<String?> signUp(String email, String password, Map<String, dynamic> userData) async {
     try {
+      final normalizedEmail = email.trim().toLowerCase();
+      const allowedDomain = '@st.phenikaa-uni.edu.vn';
+      if (!normalizedEmail.endsWith(allowedDomain)) {
+        return 'Vui lòng sử dụng email sinh viên dạng *$allowedDomain* để đăng ký.';
+      }
+
       // 1) Pre-check duplicates in application table to give friendly error earlier
       final existingEmail = await _client
           .from('users')
           .select('id')
-          .eq('email', email)
+          .eq('email', normalizedEmail)
           .maybeSingle();
 
       if (existingEmail != null) {
@@ -1434,7 +1440,7 @@ class SupabaseService {
 
       // 2) Create Auth user
       final response = await _client.auth.signUp(
-        email: email,
+        email: normalizedEmail,
         password: password,
       );
 
@@ -1447,7 +1453,7 @@ class SupabaseService {
       final userId = response.user!.id;
       await _client.from('users').insert({
         'id': userId,
-        'email': email,
+        'email': normalizedEmail,
         'student_id': userData['student_id'] ?? '',
         'name': userData['name'] ?? '',
         'major': userData['major'] ?? '',

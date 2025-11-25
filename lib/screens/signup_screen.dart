@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../providers/app_provider.dart';
 import '../widgets/common_widgets.dart';
-import 'main_screen.dart';
+import 'login_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -84,29 +84,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
 
       if (errorMessage == null) {
-        // Check if account is locked or disabled (shouldn't happen for new accounts, but check anyway)
-        final currentUser = appProvider.currentUser;
-        if (currentUser != null) {
-          if (currentUser.isLocked || currentUser.accountStatus == 'disabled') {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.'),
-                  backgroundColor: Colors.red,
-                  duration: Duration(seconds: 5),
-                ),
-              );
-            }
-            return;
-          }
-        }
-
-        // Load all data after successful signup
-        await appProvider.loadAllData();
-
+        // Đăng ký thành công -> quay về màn hình đăng nhập
+        await appProvider.signOut();
         if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đăng ký thành công! Vui lòng đăng nhập.'),
+              backgroundColor: Colors.green,
+            ),
+          );
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const MainScreen()),
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
           );
         }
       } else {
@@ -154,15 +142,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 CustomInput(
                   controller: _emailController,
                   labelText: 'Email',
-                  hintText: 'email@phenikaa.edu.vn',
+                  hintText: 'email@st.phenikaa-uni.edu.vn',
                   keyboardType: TextInputType.emailAddress,
                   prefixIcon: LucideIcons.mail,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Vui lòng nhập email';
                     }
-                    if (!value.contains('@')) {
-                      return 'Email không hợp lệ';
+                    const allowedDomain = '@st.phenikaa-uni.edu.vn';
+                    final normalized = value.trim().toLowerCase();
+                    if (!normalized.endsWith(allowedDomain)) {
+                      return 'Email phải có dạng $allowedDomain';
                     }
                     return null;
                   },
