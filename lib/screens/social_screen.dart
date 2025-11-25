@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import '../providers/app_provider.dart';
 import '../widgets/common_widgets.dart';
+import '../models/post.dart';
 import 'comments_screen.dart';
 import 'post_detail_screen.dart';
 import 'image_viewer_screen.dart';
@@ -18,10 +19,13 @@ class SocialScreen extends StatefulWidget {
   State<SocialScreen> createState() => _SocialScreenState();
 }
 
+enum _PostFilter { all, mine }
+
 class _SocialScreenState extends State<SocialScreen> {
   final TextEditingController _postController = TextEditingController();
   String? _selectedImageBase64;
   final Set<String> _expandedPosts = {};
+  _PostFilter _selectedFilter = _PostFilter.all;
 
   @override
   void dispose() {
@@ -52,6 +56,8 @@ class _SocialScreenState extends State<SocialScreen> {
         child: Column(
           children: [
             _buildCreatePostCard(),
+            const SizedBox(height: 16),
+            _buildFilterChips(),
             const SizedBox(height: 16),
             _buildPostsList(),
           ],
@@ -110,14 +116,103 @@ class _SocialScreenState extends State<SocialScreen> {
           );
         }
         
-        if (appProvider.posts.isEmpty) {
-          return const Center(
-            child: Text('Chưa có bài đăng nào'),
+        final currentUserId = appProvider.currentUser?.id;
+        List<Post> filteredPosts = appProvider.posts;
+        if (_selectedFilter == _PostFilter.mine && currentUserId != null) {
+          filteredPosts =
+              filteredPosts.where((post) => post.userId == currentUserId).toList();
+        }
+
+        if (filteredPosts.isEmpty) {
+          final emptyText = _selectedFilter == _PostFilter.mine
+              ? 'Bạn chưa có bài viết nào'
+              : 'Chưa có bài đăng nào';
+          return Center(
+            child: Text(emptyText),
           );
         }
         
         return Column(
-          children: appProvider.posts.map((post) => _buildPostCard(post)).toList(),
+          children: filteredPosts.map((post) => _buildPostCard(post)).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildFilterChips() {
+    return Consumer<AppProvider>(
+      builder: (context, appProvider, child) {
+        final canUseMyPosts = appProvider.currentUser != null;
+        final theme = Theme.of(context);
+
+        Widget buildChip(String label, _PostFilter value,
+            {required bool enabled, IconData? icon}) {
+          final isSelected = _selectedFilter == value;
+          final bgColor = isSelected
+              ? theme.colorScheme.primary.withOpacity(0.1)
+              : theme.colorScheme.surfaceVariant.withOpacity(0.4);
+          final fgColor =
+              isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface;
+          return Expanded(
+            child: GestureDetector(
+              onTap: enabled
+                  ? () {
+                      setState(() {
+                        _selectedFilter = value;
+                      });
+                    }
+                  : null,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  color: enabled ? bgColor : bgColor.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: isSelected
+                        ? theme.colorScheme.primary
+                        : Colors.transparent,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (icon != null) ...[
+                      Icon(
+                        icon,
+                        size: 18,
+                        color: enabled ? fgColor : fgColor.withOpacity(0.5),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: enabled ? fgColor : fgColor.withOpacity(0.5),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        return Row(
+          children: [
+            buildChip('Tất cả', _PostFilter.all, enabled: true, icon: LucideIcons.list),
+            const SizedBox(width: 8),
+            buildChip(
+              'Bài viết của tôi',
+              _PostFilter.mine,
+              enabled: canUseMyPosts,
+              icon: LucideIcons.user,
+            ),
+          ],
         );
       },
     );
