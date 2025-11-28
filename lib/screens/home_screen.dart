@@ -937,8 +937,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _navigateToQA(BuildContext context) {
-    // Navigate to Social tab (index 2) for Q&A
-    Provider.of<AppProvider>(context, listen: false).setSelectedTab(2);
+    // Navigate to Academic tab (index 1) and Q&A sub-tab (index 2)
+    Provider.of<AppProvider>(context, listen: false).setSelectedTabWithSubTab(1, 2);
   }
 
   void _navigateToMap(BuildContext context) {

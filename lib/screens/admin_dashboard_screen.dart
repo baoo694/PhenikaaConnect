@@ -636,6 +636,7 @@ class _AnnouncementsTabContent extends StatefulWidget {
 class _AnnouncementsTabContentState extends State<_AnnouncementsTabContent> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _announcements = [];
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -652,43 +653,93 @@ class _AnnouncementsTabContentState extends State<_AnnouncementsTabContent> {
     });
   }
 
+  List<Map<String, dynamic>> get _filteredAnnouncements {
+    if (_searchQuery.isEmpty) return _announcements;
+    return _announcements.where((announcement) {
+      final title = (announcement['title'] ?? '').toString().toLowerCase();
+      final description = (announcement['description'] ?? '').toString().toLowerCase();
+      final category = (announcement['category'] ?? '').toString().toLowerCase();
+      final createdBy = announcement['users'];
+      final creatorName = createdBy != null && createdBy is Map
+          ? (createdBy['name'] ?? '').toString().toLowerCase()
+          : '';
+      final query = _searchQuery.toLowerCase();
+      return title.contains(query) ||
+          description.contains(query) ||
+          category.contains(query) ||
+          creatorName.contains(query);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Column(
         children: [
+          // Search bar
           Padding(
             padding: const EdgeInsets.all(16),
-            child: CustomButton(
-              text: 'Gửi thông báo mới',
-              icon: LucideIcons.plus,
-              onPressed: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const AdminAnnouncementFormSheet(),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Tìm kiếm thông báo...',
+                      prefixIcon: const Icon(LucideIcons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value;
+                      });
+                    },
                   ),
-                );
-                if (result == true) {
-                  await _loadAnnouncements();
-                }
-              },
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(LucideIcons.plus),
+                  onPressed: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AdminAnnouncementFormSheet(),
+                      ),
+                    );
+                    if (result == true) {
+                      await _loadAnnouncements();
+                    }
+                  },
+                  style: IconButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
             ),
           ),
+          // Announcements list
           Expanded(
             child: RefreshIndicator(
               onRefresh: _loadAnnouncements,
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : _announcements.isEmpty
+                  : _filteredAnnouncements.isEmpty
                       ? Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(LucideIcons.bell, size: 64, color: Colors.grey[400]),
+                              Icon(
+                                LucideIcons.bell,
+                                size: 64,
+                                color: Colors.grey[400],
+                              ),
                               const SizedBox(height: 16),
                               Text(
-                                'Chưa có thông báo nào',
+                                _searchQuery.isEmpty
+                                    ? 'Chưa có thông báo nào'
+                                    : 'Không tìm thấy thông báo',
                                 style: TextStyle(color: Colors.grey[600]),
                               ),
                             ],
@@ -696,9 +747,9 @@ class _AnnouncementsTabContentState extends State<_AnnouncementsTabContent> {
                         )
                       : ListView.builder(
                           padding: const EdgeInsets.all(16),
-                          itemCount: _announcements.length,
+                          itemCount: _filteredAnnouncements.length,
                           itemBuilder: (context, index) {
-                            final announcement = _announcements[index];
+                            final announcement = _filteredAnnouncements[index];
                             return _buildAnnouncementCard(announcement);
                           },
                         ),

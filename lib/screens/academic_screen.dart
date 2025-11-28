@@ -27,11 +27,25 @@ class _AcademicScreenState extends State<AcademicScreen>
   String _searchQuery = '';
   String _courseSearchQuery = '';
   QuestionFilter _questionFilter = QuestionFilter.all;
+  int _lastProviderSubTabIndex = 0; // Track the last sub tab index from provider
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    
+    // Initialize _lastProviderSubTabIndex from provider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      _lastProviderSubTabIndex = appProvider.selectedSubTabIndex;
+      if (_tabController.index != appProvider.selectedSubTabIndex) {
+        _tabController.animateTo(
+          appProvider.selectedSubTabIndex,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
   }
 
   @override
@@ -42,29 +56,47 @@ class _AcademicScreenState extends State<AcademicScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 0,
-        elevation: 0,
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(LucideIcons.calendar), text: 'Lịch học'),
-            Tab(icon: Icon(LucideIcons.bookOpen), text: 'Môn học'),
-            Tab(icon: Icon(LucideIcons.messageSquare), text: 'Q&A'),
-            Tab(icon: Icon(LucideIcons.users), text: 'Nhóm'),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildScheduleTab(),
-          _buildCoursesTab(),
-          _buildQnATab(),
-          _buildGroupsTab(),
-        ],
-      ),
+    return Consumer<AppProvider>(
+      builder: (context, appProvider, child) {
+        // Update tab controller when sub tab index changes from provider
+        if (appProvider.selectedSubTabIndex != _lastProviderSubTabIndex) {
+          _lastProviderSubTabIndex = appProvider.selectedSubTabIndex;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_tabController.index != appProvider.selectedSubTabIndex) {
+              _tabController.animateTo(
+                appProvider.selectedSubTabIndex,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+              );
+            }
+          });
+        }
+        
+        return Scaffold(
+          appBar: AppBar(
+            toolbarHeight: 0,
+            elevation: 0,
+            bottom: TabBar(
+              controller: _tabController,
+              tabs: const [
+                Tab(icon: Icon(LucideIcons.calendar), text: 'Lịch học'),
+                Tab(icon: Icon(LucideIcons.bookOpen), text: 'Môn học'),
+                Tab(icon: Icon(LucideIcons.messageSquare), text: 'Q&A'),
+                Tab(icon: Icon(LucideIcons.users), text: 'Nhóm'),
+              ],
+            ),
+          ),
+          body: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildScheduleTab(),
+              _buildCoursesTab(),
+              _buildQnATab(),
+              _buildGroupsTab(),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -189,75 +221,197 @@ class _AcademicScreenState extends State<AcademicScreen>
   }
 
   Widget _buildClassCard(ClassSchedule cls) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: _buildScheduleGradient(cls.color),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      cls.subject,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => _showClassDetail(cls),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: _buildScheduleGradient(cls.color),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        cls.subject,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      cls.instructor,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white.withOpacity(0.9),
+                      const SizedBox(height: 4),
+                      Text(
+                        cls.instructor,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.white.withOpacity(0.9),
+                            ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  cls.room,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w500,
+                    ],
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              const Icon(
-                LucideIcons.clock,
-                color: Colors.white,
-                size: 16,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                cls.time,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white.withOpacity(0.9),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    cls.room,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w500,
+                        ),
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(
+                  LucideIcons.clock,
+                  color: Colors.white,
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  cls.time,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  void _showClassDetail(ClassSchedule cls) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final formattedTime = _formatTimeRange(cls);
+        final dayLabel = _dayInVietnamese(cls.day);
+
+        Widget buildInfoRow(IconData icon, String label, String value) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 18, color: theme.colorScheme.primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        value.isNotEmpty ? value : 'Đang cập nhật',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 48,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.outline.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              cls.subject,
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Tiết học ${_dayInVietnamese(cls.day)}',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurface.withOpacity(0.7),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(LucideIcons.x),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  buildInfoRow(LucideIcons.calendarDays, 'Ngày học', dayLabel),
+                  buildInfoRow(LucideIcons.clock8, 'Thời gian', formattedTime),
+                  buildInfoRow(LucideIcons.user, 'Giảng viên', cls.instructor),
+                  buildInfoRow(LucideIcons.mapPin, 'Phòng học', cls.room),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -268,6 +422,14 @@ class _AcademicScreenState extends State<AcademicScreen>
       begin: Alignment.centerLeft,
       end: Alignment.centerRight,
     );
+  }
+
+  String _formatTimeRange(ClassSchedule cls) {
+    if (cls.startTime != null && cls.endTime != null) {
+      final formatter = DateFormat('HH:mm');
+      return '${formatter.format(cls.startTime!)} - ${formatter.format(cls.endTime!)}';
+    }
+    return cls.time;
   }
 
   List<Color> _gradientColors(String? color) {

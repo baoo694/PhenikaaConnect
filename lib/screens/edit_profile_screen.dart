@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../providers/app_provider.dart';
 import '../widgets/common_widgets.dart';
+import '../services/supabase_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -70,17 +71,34 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     try {
       final appProvider = Provider.of<AppProvider>(context, listen: false);
+      final currentUser = appProvider.currentUser;
       
-      final updatedUser = appProvider.currentUser?.copyWith(
-        name: _nameController.text.trim(),
-        phone: _phoneController.text.trim(),
-        major: _selectedMajor ?? '',
-        year: _selectedYear ?? '',
+      if (currentUser == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Không tìm thấy thông tin người dùng'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Chỉ cập nhật tên và số điện thoại
+      final updates = {
+        'name': _nameController.text.trim(),
+        'phone': _phoneController.text.trim(),
+      };
+
+      // Cập nhật lên Supabase
+      final updatedUser = await SupabaseService.updateUser(
+        currentUser.id,
+        updates,
       );
 
       if (updatedUser != null) {
-        // TODO: Call update user API when implemented
-        // await SupabaseService.updateUser(updatedUser);
+        // Cập nhật trong AppProvider
         appProvider.updateUser(updatedUser);
         
         if (mounted) {
@@ -91,6 +109,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
           );
           Navigator.of(context).pop();
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Không thể cập nhật thông tin. Vui lòng thử lại.'),
+              backgroundColor: Colors.red,
+            ),
+          );
         }
       }
     } catch (e) {
@@ -200,7 +227,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Major Dropdown
+              // Major Dropdown (readonly)
               DropdownButtonFormField<String>(
                 value: _selectedMajor,
                 decoration: InputDecoration(
@@ -216,19 +243,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     child: Text(major),
                   );
                 }).toList(),
-                onChanged: (value) {
-                  setState(() => _selectedMajor = value);
-                },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Vui lòng chọn ngành học';
-                  }
-                  return null;
-                },
+                onChanged: null, // Vô hiệu hóa chỉnh sửa
               ),
               const SizedBox(height: 16),
 
-              // Year Dropdown
+              // Year Dropdown (readonly)
               DropdownButtonFormField<String>(
                 value: _selectedYear,
                 decoration: InputDecoration(
@@ -244,15 +263,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     child: Text(year),
                   );
                 }).toList(),
-                onChanged: (value) {
-                  setState(() => _selectedYear = value);
-                },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Vui lòng chọn năm học';
-                  }
-                  return null;
-                },
+                onChanged: null, // Vô hiệu hóa chỉnh sửa
               ),
               const SizedBox(height: 16),
 
